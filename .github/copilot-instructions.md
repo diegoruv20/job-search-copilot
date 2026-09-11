@@ -94,8 +94,17 @@ through `outcome_record`.
 
 ## Development rules
 
+- For product design, workflow, schema, or feature changes, load the
+  `safe-customization` skill or use the `product-customizer` agent.
+- Translate requests into the underlying user outcome and inspect all affected
+  surfaces before editing.
+- Preserve existing user data and behavior. Back up the database before schema,
+  replacement, or destructive changes, and test upgrades on temporary data.
 - Keep REST and MCP behavior in parity by changing `services.py` first.
 - Add tests for every state transition, destructive guard, and MCP tool.
+- Preserve accessible empty, loading, success, and error states in user-facing
+  features, including desktop and mobile behavior.
 - Keep the MCP stdio channel free of `print()` output; log to stderr.
 - Use PID-specific dashboard lifecycle handling.
-- Run `python -m unittest discover -s tests -v` after changes.
+- Run `.\.venv\Scripts\python.exe scripts\release_check.py` before declaring a
+  customization complete.

@@ -24,6 +24,18 @@ Playwright ----------> job sites and local dashboard
 REST and MCP must not reimplement business rules. Add or change behavior in the
 service layer, then test both adapters for parity.
 
+## Customization contract
+
+The repository is intended to evolve for each user. The `product-customizer`
+agent and `safe-customization` skill define the guarded workflow for design,
+feature, workflow, and schema changes.
+
+Customizations must preserve local-first privacy, current data, REST/MCP parity,
+and blank-first-run behavior. A schema change needs an idempotent upgrade path
+that produces the same final schema for old and new databases. Export, import,
+backup, restore, setup, documentation, and relevant UI states are part of the
+feature surface rather than optional follow-up work.
+
 ## Local data
 
 The default database is `instance/applications.db`. SQLite uses write-ahead

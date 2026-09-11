@@ -19,10 +19,12 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / ".github" / "skills" / "outreach" / "SKILL.md",
             ROOT / ".github" / "skills" / "interview-prep" / "SKILL.md",
             ROOT / ".github" / "skills" / "profile-onboarding" / "SKILL.md",
+            ROOT / ".github" / "skills" / "safe-customization" / "SKILL.md",
             ROOT / ".github" / "agents" / "career-discovery.agent.md",
             ROOT / ".github" / "agents" / "job-search.agent.md",
             ROOT / ".github" / "agents" / "application-strategist.agent.md",
             ROOT / ".github" / "agents" / "interview-coach.agent.md",
+            ROOT / ".github" / "agents" / "product-customizer.agent.md",
             ROOT / "config" / "user_profile.example.md",
             ROOT / "config" / "experience_inventory.example.md",
             ROOT / "scripts" / "bootstrap.py",
@@ -35,6 +37,7 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / "docs" / "data-and-privacy.md",
             ROOT / "docs" / "troubleshooting.md",
             ROOT / "docs" / "profile-onboarding.md",
+            ROOT / "docs" / "customization.md",
         ]
         self.assertEqual([str(path) for path in required if not path.is_file()], [])
 
@@ -139,3 +142,24 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             )
             complete = profile_status(root)
             self.assertTrue(complete["ready"])
+
+    def test_customization_workflow_requires_safety_gate(self):
+        instructions = (
+            ROOT / ".github" / "skills" / "safe-customization" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        agent = (
+            ROOT / ".github" / "agents" / "product-customizer.agent.md"
+        ).read_text(encoding="utf-8")
+
+        for required_rule in [
+            "services.py",
+            "verified online backup",
+            "idempotent upgrade path",
+            "scripts\\release_check.py",
+            "Playwright",
+        ]:
+            self.assertIn(required_rule, instructions)
+
+        self.assertIn("Always load the `safe-customization` skill", agent)
+        self.assertIn("Existing user data must remain readable", agent)
+        self.assertIn("the work as incomplete", agent)

@@ -19,6 +19,7 @@ application pipeline—all from a local workspace you control.
 | Private application tracker | Stores jobs, follow-ups, outcomes, freshness, conversion, and application-flow history in local SQLite |
 | Application strategy | Creates evidence-based resumes, application answers, company notes, and outreach drafts without submitting or sending |
 | Interview coaching | Builds role-specific plans and runs realistic, scored practice using your confirmed experience |
+| Safe customization | Lets Copilot redesign workflows and add features while protecting local data, shared contracts, and existing behavior |
 
 ## Quick start
 
@@ -84,6 +85,7 @@ Open [http://127.0.0.1:5050](http://127.0.0.1:5050).
 | Draft outreach | `Research the best warm contact for job 12 and draft a message for me to send manually.` |
 | Practice an interview | `Run a 45-minute cold system-design mock for my next confirmed stage.` |
 | Record progress | `I applied today using the final resume. Update the tracker and set the next follow-up.` |
+| Customize the product | `Use the product-customizer agent to add a weekly planning view without breaking my current data or workflow.` |
 
 Copilot never submits applications, uploads documents, or sends outreach without
 explicit approval.
@@ -138,6 +140,7 @@ validated lifecycle.
 ## Documentation
 
 - [Guided profile onboarding](docs/profile-onboarding.md)
+- [Safe customization](docs/customization.md)
 - [Copilot workflows](docs/workflows.md)
 - [Architecture](docs/architecture.md)
 - [Data ownership and recovery](docs/data-and-privacy.md)
