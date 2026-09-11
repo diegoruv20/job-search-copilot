@@ -1,0 +1,608 @@
+import json
+from datetime import date, datetime, time, timedelta
+from types import SimpleNamespace
+from urllib.parse import urlparse
+
+from flask import Blueprint, jsonify, request
+from sqlalchemy import case, or_
+
+from models import (
+    FRESHNESS_BUCKETS,
+    Job,
+    SankeySnapshot,
+    StatusHistory,
+    db,
+    freshness_bucket,
+)
+
+
+api_bp = Blueprint("api", __name__, url_prefix="/api")
+
+STATUSES = [
+    "Researching",
+    "Referral Prep",
+    "Preparing",
+    "Ready to Apply",
+    "Applied",
+    "Recruiter Screen",
+    "Hiring Manager",
+    "Technical Interview",
+    "System Design",
+    "Onsite",
+    "Offer",
+    "Hold",
+    "Not a Fit",
+    "Rejected",
+    "Withdrawn",
+]
+
+ACTIVE_APPLICATION_STATUSES = {
+    "Applied",
+    "Recruiter Screen",
+    "Hiring Manager",
+    "Technical Interview",
+    "System Design",
+    "Onsite",
+    "Offer",
+}
+
+TERMINAL_APPLICATION_STATUSES = {
+    "Rejected",
+    "Withdrawn",
+}
+
+APPLIED_STATUSES = ACTIVE_APPLICATION_STATUSES | TERMINAL_APPLICATION_STATUSES
+NON_APPLICATION_TERMINAL_STATUSES = {"Not a Fit"}
+RECOMMENDATION_EXCLUDED_STATUSES = (
+    APPLIED_STATUSES | NON_APPLICATION_TERMINAL_STATUSES
+)
+
+TIERS = ["Apply Next", "Prepare Soon", "Conditional", "Monitor", "Active Application"]
+FRESHNESS_CONFIDENCE = ["High", "Medium", "Low"]
+
+NOT_FIT_CATEGORIES = [
+    "Required experience / seniority",
+    "Required technology stack",
+    "Role specialization mismatch",
+    "Work-life / on-call",
+    "Location / office requirement",
+    "Compensation insufficient",
+    "Posting stale / high competition",
+    "Superseded by stronger opportunity",
+    "Excluded company / industry",
+    "Other documented reason",
+]
+
+EDITABLE_FIELDS = {
+    "company",
+    "role",
+    "status",
+    "stage",
+    "url",
+    "location",
+    "compensation",
+    "fit_summary",
+    "decision",
+    "not_fit_category",
+    "recommendation_tier",
+    "recommendation_rank",
+    "on_call",
+    "risk",
+    "next_action",
+    "next_action_date",
+    "applied_date",
+    "first_published_date",
+    "posting_updated_date",
+    "linkedin_reposted_date",
+    "last_verified_date",
+    "freshness_source",
+    "freshness_confidence",
+    "notes",
+    "archived",
+}
+
+
+def parse_date(value, field):
+    if value in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field} must be an ISO date (YYYY-MM-DD)")
+
+
+def apply_payload(job, payload):
+    for field in EDITABLE_FIELDS:
+        if field not in payload:
+            continue
+        value = payload[field]
+        if field in {
+            "next_action_date",
+            "applied_date",
+            "first_published_date",
+            "posting_updated_date",
+            "linkedin_reposted_date",
+            "last_verified_date",
+        }:
+            value = parse_date(value, field)
+        elif field == "archived":
+            value = bool(value)
+        elif field == "recommendation_rank":
+            value = int(value) if value not in (None, "") else None
+        elif isinstance(value, str):
+            value = value.strip() or None
+        if field == "url" and value:
+            parsed = urlparse(value)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ValueError("URL must start with http:// or https://")
+        setattr(job, field, value)
+
+    if not job.company or not job.role:
+        raise ValueError("Company and role are required")
+    if job.status not in STATUSES:
+        raise ValueError("Invalid status")
+    if job.recommendation_tier not in TIERS:
+        raise ValueError("Invalid recommendation tier")
+    if job.status == "Not a Fit" and not job.decision:
+        raise ValueError("A decision reason is required for Not a Fit jobs")
+    if job.status == "Not a Fit" and not job.not_fit_category:
+        raise ValueError("A primary Not a Fit category is required")
+    if job.not_fit_category and job.not_fit_category not in NOT_FIT_CATEGORIES:
+        raise ValueError("Invalid Not a Fit category")
+    if (
+        job.freshness_confidence
+        and job.freshness_confidence not in FRESHNESS_CONFIDENCE
+    ):
+        raise ValueError("Invalid freshness confidence")
+
+
+def sync_application_state(job, payload, status_changed=False):
+    if job.status in ACTIVE_APPLICATION_STATUSES:
+        job.recommendation_tier = "Active Application"
+        job.recommendation_rank = None
+    elif (
+        job.status in TERMINAL_APPLICATION_STATUSES
+        and job.recommendation_tier == "Active Application"
+    ):
+        job.recommendation_tier = "Monitor"
+        job.recommendation_rank = None
+    elif job.status in NON_APPLICATION_TERMINAL_STATUSES:
+        job.recommendation_tier = "Monitor"
+        job.recommendation_rank = None
+        job.next_action_date = None
+
+    if job.status == "Applied" and status_changed and "stage" not in payload:
+        job.stage = "Application submitted"
+    elif (
+        job.status in NON_APPLICATION_TERMINAL_STATUSES
+        and status_changed
+        and "stage" not in payload
+    ):
+        job.stage = "Not selected for application"
+
+
+def build_sankey_data(jobs=None):
+    if jobs is None:
+        jobs = Job.query.filter(
+            or_(Job.archived.is_(False), Job.applied_date.is_not(None))
+        ).all()
+    interview_stages = {
+        "Recruiter Screen": "Recruiter screen",
+        "Hiring Manager": "Hiring manager",
+        "Technical Interview": "Technical interview",
+        "System Design": "System design",
+        "Onsite": "Onsite",
+    }
+
+    def rejection_type(job):
+        stage = (job.stage or "").lower()
+        if "resume" in stage:
+            return "Rejected at resume screen"
+        if "recruiter" in stage:
+            return "Rejected after recruiter screen"
+        if any(word in stage for word in ("technical", "coding", "system design")):
+            return "Rejected after technical stage"
+        if "onsite" in stage:
+            return "Rejected after onsite"
+        return "Other rejection"
+
+    links = {}
+
+    def add(source, target, value=1):
+        if value:
+            links[(source, target)] = links.get((source, target), 0) + value
+
+    for job in jobs:
+        if job.applied_date:
+            add("Tracked roles", "Applied")
+            if job.status == "Rejected":
+                add("Applied", "Rejected")
+                add("Rejected", rejection_type(job))
+            elif job.status == "Withdrawn":
+                add("Applied", "Withdrawn")
+            elif job.status == "Offer":
+                add("Applied", "Offer")
+            elif job.status in interview_stages:
+                add("Applied", interview_stages[job.status])
+            else:
+                add("Applied", "Active / awaiting response")
+        else:
+            add("Tracked roles", "Not applied")
+            if job.status == "Ready to Apply":
+                add("Not applied", "Ready to apply")
+            elif job.status == "Not a Fit":
+                add("Not applied", "Not a fit")
+                add("Not a fit", job.not_fit_category or "Other documented reason")
+            elif job.status == "Hold":
+                add("Not applied", "On hold")
+            elif job.status == "Referral Prep":
+                add("Not applied", "Referral prep")
+            else:
+                add("Not applied", "Researching / preparing")
+
+    node_names = []
+    for source, target in links:
+        for name in (source, target):
+            if name not in node_names:
+                node_names.append(name)
+
+    return {
+        "nodes": [{"name": name} for name in node_names],
+        "links": [
+            {
+                "source": node_names.index(source),
+                "target": node_names.index(target),
+                "value": value,
+            }
+            for (source, target), value in links.items()
+        ],
+    }
+
+
+def record_sankey_snapshot(reason):
+    data_json = json.dumps(build_sankey_data(), separators=(",", ":"), sort_keys=True)
+    latest = SankeySnapshot.query.order_by(
+        SankeySnapshot.created_at.desc(), SankeySnapshot.id.desc()
+    ).first()
+    if latest and latest.data_json == data_json:
+        return None
+    snapshot = SankeySnapshot(data_json=data_json, reason=reason)
+    db.session.add(snapshot)
+    return snapshot
+
+
+def ensure_sankey_baseline():
+    if SankeySnapshot.query.first() is None:
+        record_sankey_snapshot("History tracking started")
+        db.session.commit()
+
+
+def backfill_sankey_history():
+    if SankeySnapshot.query.filter(
+        SankeySnapshot.reason.like("Estimated replay —%")
+    ).first():
+        return
+
+    jobs = Job.query.order_by(Job.id).all()
+    applied_dates = [job.applied_date for job in jobs if job.applied_date]
+    if not applied_dates:
+        return
+
+    first_exact = SankeySnapshot.query.filter(
+        ~SankeySnapshot.reason.like("Estimated replay —%")
+    ).order_by(SankeySnapshot.created_at).first()
+    last_estimated_date = (
+        first_exact.created_at.date() - timedelta(days=1)
+        if first_exact
+        else date.today() - timedelta(days=1)
+    )
+    current_date = min(applied_dates)
+
+    while current_date <= last_estimated_date:
+        end_of_day = datetime.combine(current_date, time.max)
+        historical_jobs = []
+        for job in jobs:
+            existed = job.created_at <= end_of_day
+            was_applied = bool(job.applied_date and job.applied_date <= current_date)
+            if not existed and not was_applied:
+                continue
+
+            status = "Applied" if was_applied else job.status
+            transitions = sorted(job.histories, key=lambda item: item.created_at)
+            applicable = [
+                transition
+                for transition in transitions
+                if transition.created_at <= end_of_day
+            ]
+            if applicable:
+                status = applicable[-1].new_status
+            elif was_applied:
+                status = "Applied"
+
+            historical_jobs.append(
+                SimpleNamespace(
+                    applied_date=job.applied_date if was_applied else None,
+                    status=status,
+                    stage=job.stage if status == "Rejected" else None,
+                    not_fit_category=(
+                        job.not_fit_category if status == "Not a Fit" else None
+                    ),
+                )
+            )
+
+        data = build_sankey_data(historical_jobs)
+        application_count = sum(1 for job in historical_jobs if job.applied_date)
+        db.session.add(
+            SankeySnapshot(
+                data_json=json.dumps(data, separators=(",", ":"), sort_keys=True),
+                reason=(
+                    f"Estimated replay — {current_date.strftime('%b %d, %Y')} "
+                    f"({application_count} applications)"
+                ),
+                created_at=end_of_day,
+            )
+        )
+        current_date += timedelta(days=1)
+
+    db.session.commit()
+
+
+@api_bp.get("/meta")
+def meta():
+    return jsonify(
+        {
+            "statuses": STATUSES,
+            "tiers": TIERS,
+            "not_fit_categories": NOT_FIT_CATEGORIES,
+            "freshness_confidence": FRESHNESS_CONFIDENCE,
+        }
+    )
+
+
+@api_bp.get("/jobs")
+def list_jobs():
+    query = Job.query
+    search = request.args.get("q", "").strip()
+    status = request.args.get("status", "").strip()
+    tier = request.args.get("tier", "").strip()
+    archive = request.args.get("archive", "active").strip()
+
+    if archive == "archived":
+        query = query.filter(Job.archived.is_(True))
+    elif archive != "all":
+        query = query.filter(Job.archived.is_(False))
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            or_(Job.company.ilike(like), Job.role.ilike(like), Job.fit_summary.ilike(like))
+        )
+    if status:
+        query = query.filter(Job.status == status)
+    if tier:
+        query = query.filter(Job.recommendation_tier == tier)
+
+    tier_order = case(
+        (Job.recommendation_tier == "Apply Next", 1),
+        (Job.recommendation_tier == "Prepare Soon", 2),
+        (Job.recommendation_tier == "Active Application", 3),
+        (Job.recommendation_tier == "Conditional", 4),
+        else_=5,
+    )
+    jobs = query.order_by(
+        tier_order,
+        Job.recommendation_rank.is_(None),
+        Job.recommendation_rank,
+        Job.first_published_date.desc(),
+        Job.updated_at.desc(),
+    ).all()
+    return jsonify([job.to_dict() for job in jobs])
+
+
+@api_bp.post("/jobs")
+def create_job():
+    payload = request.get_json(silent=True) or {}
+    job = Job(
+        company=(payload.get("company") or "").strip(),
+        role=(payload.get("role") or "").strip(),
+        status=payload.get("status") or "Researching",
+        recommendation_tier=payload.get("recommendation_tier") or "Monitor",
+    )
+    try:
+        apply_payload(job, payload)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    sync_application_state(job, payload, status_changed=True)
+    if job.status in APPLIED_STATUSES and not job.applied_date:
+        job.applied_date = date.today()
+
+    db.session.add(job)
+    db.session.flush()
+    db.session.add(
+        StatusHistory(
+            job_id=job.id,
+            old_status=None,
+            new_status=job.status,
+            note=job.decision if job.status == "Not a Fit" else "Job added",
+        )
+    )
+    record_sankey_snapshot(f"Added {job.company} — {job.role}")
+    db.session.commit()
+    return jsonify(job.to_dict()), 201
+
+
+@api_bp.put("/jobs/<int:job_id>")
+def update_job(job_id):
+    job = db.get_or_404(Job, job_id)
+    payload = request.get_json(silent=True) or {}
+    old_status = job.status
+    try:
+        apply_payload(job, payload)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    sync_application_state(job, payload, status_changed=job.status != old_status)
+
+    if job.status != old_status:
+        db.session.add(
+            StatusHistory(
+                job_id=job.id,
+                old_status=old_status,
+                new_status=job.status,
+                note=(
+                    (payload.get("status_note") or "").strip()
+                    or (job.decision if job.status == "Not a Fit" else None)
+                ),
+            )
+        )
+        if job.status in APPLIED_STATUSES and not job.applied_date:
+            job.applied_date = date.today()
+
+    db.session.flush()
+    reason = (
+        f"{job.company}: {old_status} → {job.status}"
+        if job.status != old_status
+        else f"Updated {job.company} — {job.role}"
+    )
+    record_sankey_snapshot(reason)
+    db.session.commit()
+    return jsonify(job.to_dict())
+
+
+@api_bp.delete("/jobs/<int:job_id>")
+def delete_job(job_id):
+    job = db.get_or_404(Job, job_id)
+    reason = f"Deleted {job.company} — {job.role}"
+    db.session.delete(job)
+    db.session.flush()
+    record_sankey_snapshot(reason)
+    db.session.commit()
+    return "", 204
+
+
+@api_bp.get("/stats")
+def stats():
+    jobs = Job.query.all()
+    active_jobs = [job for job in jobs if not job.archived]
+    active_interview_statuses = {
+        "Recruiter Screen",
+        "Hiring Manager",
+        "Technical Interview",
+        "System Design",
+        "Onsite",
+    }
+    status_counts = {status: 0 for status in STATUSES}
+    for job in active_jobs:
+        status_counts[job.status] = status_counts.get(job.status, 0) + 1
+
+    bucket_labels = [label for _, _, label in FRESHNESS_BUCKETS] + ["61+ days", "Unknown"]
+    freshness_conversion = {
+        label: {"bucket": label, "applications": 0, "recruiter_screens": 0}
+        for label in bucket_labels
+    }
+
+    def reached_recruiter_screen(job):
+        progressed_statuses = {
+            "Recruiter Screen",
+            "Hiring Manager",
+            "Technical Interview",
+            "System Design",
+            "Onsite",
+            "Offer",
+        }
+        if job.status in progressed_statuses:
+            return True
+        if any(item.new_status in progressed_statuses for item in job.histories):
+            return True
+        stage = (job.stage or "").lower()
+        return job.status == "Rejected" and any(
+            marker in stage
+            for marker in ("recruiter", "hiring manager", "technical", "coding", "system design", "onsite")
+        )
+
+    for job in jobs:
+        if not job.applied_date:
+            continue
+        bucket = freshness_bucket(job.age_at_application_days)
+        freshness_conversion[bucket]["applications"] += 1
+        if reached_recruiter_screen(job):
+            freshness_conversion[bucket]["recruiter_screens"] += 1
+
+    freshness_rows = []
+    for label in bucket_labels:
+        row = freshness_conversion[label]
+        applications = row["applications"]
+        row["conversion_rate"] = (
+            round(row["recruiter_screens"] * 100 / applications, 1)
+            if applications
+            else None
+        )
+        freshness_rows.append(row)
+
+    return jsonify(
+        {
+            "total": len(jobs),
+            "applied": sum(1 for job in jobs if job.applied_date),
+            "active_applications": sum(
+                1
+                for job in active_jobs
+                if job.status
+                in {"Applied", *active_interview_statuses}
+            ),
+            "interviews": sum(
+                1 for job in active_jobs if job.status in active_interview_statuses
+            ),
+            "offers": status_counts.get("Offer", 0),
+            "follow_ups_due": sum(1 for job in jobs if job.follow_up_due),
+            "apply_next": status_counts.get("Ready to Apply", 0),
+            "status_counts": status_counts,
+            "freshness_conversion": freshness_rows,
+        }
+    )
+
+
+@api_bp.get("/recommendations")
+def recommendations():
+    jobs = (
+        Job.query.filter(
+            Job.archived.is_(False),
+            Job.status.notin_(RECOMMENDATION_EXCLUDED_STATUSES),
+            Job.recommendation_tier.in_(["Apply Next", "Prepare Soon", "Conditional"]),
+        )
+        .order_by(
+            case(
+                (Job.recommendation_tier == "Apply Next", 1),
+                (Job.recommendation_tier == "Prepare Soon", 2),
+                else_=3,
+            ),
+            Job.recommendation_rank.is_(None),
+            Job.recommendation_rank,
+            Job.first_published_date.desc(),
+        )
+        .limit(8)
+        .all()
+    )
+    return jsonify([job.to_dict() for job in jobs])
+
+
+@api_bp.get("/history")
+def history():
+    limit = min(max(request.args.get("limit", 12, type=int), 1), 50)
+    items = StatusHistory.query.order_by(StatusHistory.created_at.desc()).limit(limit)
+    return jsonify([item.to_dict() for item in items])
+
+
+@api_bp.get("/sankey")
+def sankey():
+    return jsonify(build_sankey_data())
+
+
+@api_bp.get("/sankey/snapshots")
+def sankey_snapshots():
+    limit = min(max(request.args.get("limit", 250, type=int), 1), 1000)
+    snapshots = SankeySnapshot.query.order_by(SankeySnapshot.created_at.desc()).limit(limit)
+    return jsonify([snapshot.to_dict() for snapshot in snapshots])
+
+
+@api_bp.get("/sankey/snapshots/<int:snapshot_id>")
+def sankey_snapshot(snapshot_id):
+    snapshot = db.get_or_404(SankeySnapshot, snapshot_id)
+    return jsonify(snapshot.to_dict(include_data=True))

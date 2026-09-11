@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+
+# Local application state
+instance/
+runtime/
+backups/
+exports/
+*.db
+*.db-shm
+*.db-wal
+
+# User-specific configuration and evidence
+.env
+user_profile.md
+experience_inventory.md
+local/
+
+# Generated application materials
+applications/
+*.docx
+*.pdf
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

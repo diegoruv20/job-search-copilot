@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | Job Tracker{% endblock %}
+{% block content %}
+<div class="page-shell">
+  <header class="hero">
+    <div>
+      <span class="eyebrow">Your job search, organized</span>
+      <h1>Application dashboard</h1>
+      <p>Track every opportunity, keep follow-ups visible, and focus on the roles that best match your goals.</p>
+    </div>
+    <div class="hero-date" id="today-label"></div>
+  </header>
+
+  <section class="stats-grid" id="stats-grid">
+    <article class="stat-card accent-purple"><span>Active applications</span><strong id="active-stat">-</strong><small>Waiting or interviewing</small></article>
+    <article class="stat-card accent-blue"><span>Total applied</span><strong id="applied-stat">-</strong><small>All submitted roles</small></article>
+    <article class="stat-card accent-green"><span>Interviews</span><strong id="interview-stat">-</strong><small>Currently in a loop</small></article>
+    <article class="stat-card accent-amber"><span>Follow-ups due</span><strong id="followup-stat">-</strong><small>Actions needing attention</small></article>
+    <article class="stat-card accent-pink"><span>Offers</span><strong id="offer-stat">-</strong><small>Active offers</small></article>
+  </section>
+
+  <section class="panel recommendations-panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Prioritized for you</span><h2>Recommended next moves</h2></div>
+      <span class="section-note">Updated from the latest job-search analysis</span>
+    </div>
+    <div class="recommendation-grid" id="recommendations"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Measured from original publication</span><h2>Freshness and recruiter-screen conversion</h2></div>
+      <span class="section-note">Reposts are tracked separately and do not reset posting age</span>
+    </div>
+    <div class="freshness-grid" id="freshness-conversion"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Progress at a glance</span><h2>Application pipeline</h2></div>
+    </div>
+    <div class="pipeline" id="pipeline"></div>
+  </section>
+
+  <section class="panel sankey-panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Live application outcomes</span><h2>Application flow</h2></div>
+      <div class="sankey-history-controls">
+        <label for="sankey-snapshot-select">View</label>
+        <select id="sankey-snapshot-select">
+          <option value="">Live view</option>
+        </select>
+        <span class="section-note" id="sankey-view-note">Current pipeline</span>
+      </div>
+    </div>
+    <div class="sankey-legend">
+      <span><i class="legend-dot tracked"></i>Pipeline</span>
+      <span><i class="legend-dot active"></i>Active</span>
+      <span><i class="legend-dot positive"></i>Progress</span>
+      <span><i class="legend-dot negative"></i>Closed</span>
+    </div>
+    <div id="sankey-chart" class="sankey-chart" role="img" aria-label="Application outcome Sankey diagram"></div>
+    <div class="sankey-timeline" aria-label="Application history playback">
+      <div class="sankey-playback-controls">
+        <button type="button" class="timeline-button" id="sankey-rewind" aria-label="Rewind to first snapshot" title="Rewind">|&lt;</button>
+        <button type="button" class="timeline-button" id="sankey-previous" aria-label="Previous snapshot" title="Previous">&lt;</button>
+        <button type="button" class="timeline-button timeline-play" id="sankey-play" aria-label="Play history" title="Play">Play</button>
+        <button type="button" class="timeline-button" id="sankey-next" aria-label="Next snapshot" title="Next">&gt;</button>
+        <button type="button" class="timeline-button" id="sankey-live" aria-label="Jump to live view" title="Live view">Live</button>
+      </div>
+      <div class="sankey-scrubber">
+        <input id="sankey-timeline-range" type="range" min="0" max="0" value="0" step="1" aria-label="Application history timeline">
+        <div class="sankey-timeline-scale">
+          <span id="sankey-timeline-start">First snapshot</span>
+          <strong id="sankey-timeline-label" aria-live="polite">Live view</strong>
+          <span>Now</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="content-grid">
+    <section class="panel jobs-panel">
+      <div class="section-heading">
+        <div><span class="eyebrow">Source of truth</span><h2>Jobs and applications</h2></div>
+        <span class="result-count" id="result-count"></span>
+      </div>
+      <div class="filters">
+        <label class="search-field">
+          <span>Search</span>
+          <input id="search-input" type="search" placeholder="Company, role, or skill">
+        </label>
+        <label>
+          <span>Status</span>
+          <select id="status-filter"><option value="">All statuses</option></select>
+        </label>
+        <label>
+          <span>Recommendation</span>
+          <select id="tier-filter"><option value="">All recommendations</option></select>
+        </label>
+        <label>
+          <span>Visibility</span>
+          <select id="archive-filter">
+            <option value="active">Active roles</option>
+            <option value="archived">Archived roles</option>
+            <option value="all">All roles</option>
+          </select>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Opportunity</th><th>Status</th><th>Recommendation</th><th>Next action</th><th></th></tr></thead>
+          <tbody id="jobs-table"></tbody>
+        </table>
+      </div>
+      <div class="mobile-job-list" id="mobile-job-list"></div>
+      <div class="empty-state" id="empty-state" hidden>No jobs match these filters.</div>
+    </section>
+
+    <aside class="panel activity-panel">
+      <div class="section-heading"><div><span class="eyebrow">Recent changes</span><h2>Activity</h2></div></div>
+      <div id="activity-list" class="activity-list"></div>
+    </aside>
+  </div>
+</div>
+
+<dialog id="job-dialog">
+  <form id="job-form">
+    <div class="dialog-heading">
+      <div><span class="eyebrow">Opportunity details</span><h2 id="dialog-title">Add job</h2></div>
+      <button type="button" class="icon-button" id="close-dialog" aria-label="Close">×</button>
+    </div>
+    <input type="hidden" id="job-id">
+    <div class="form-grid">
+      <label><span>Company *</span><input id="company" required maxlength="120"></label>
+      <label><span>Role *</span><input id="role" required maxlength="240"></label>
+      <label><span>Status</span><select id="status"></select></label>
+      <label><span>Current stage</span><input id="stage" maxlength="100"></label>
+      <label><span>Recommendation</span><select id="recommendation-tier"></select></label>
+      <label><span>Priority rank</span><input id="recommendation-rank" type="number" min="1"></label>
+      <label class="span-2"><span>Job link</span><input id="url" type="url" placeholder="https://..."></label>
+      <label><span>Location</span><input id="location"></label>
+      <label><span>Compensation</span><input id="compensation"></label>
+      <label><span>Applied date</span><input id="applied-date" type="date"></label>
+      <label><span>Next action date</span><input id="next-action-date" type="date"></label>
+      <label><span>First published</span><input id="first-published-date" type="date"></label>
+      <label><span>Official posting update</span><input id="posting-updated-date" type="date"></label>
+      <label><span>LinkedIn repost</span><input id="linkedin-reposted-date" type="date"></label>
+      <label><span>Last verified active</span><input id="last-verified-date" type="date"></label>
+      <label><span>Freshness source</span><input id="freshness-source" placeholder="Official ATS, LinkedIn, recruiter..."></label>
+      <label><span>Freshness confidence</span><select id="freshness-confidence"></select></label>
+      <label class="span-2"><span>Fit summary</span><textarea id="fit-summary" rows="2"></textarea></label>
+      <label class="span-2"><span>Not a Fit category</span><select id="not-fit-category"></select></label>
+      <label class="span-2"><span>Decision / final-state reason</span><textarea id="decision" rows="2" placeholder="Required when marking a role Not a Fit"></textarea></label>
+      <label class="span-2"><span>Next action</span><textarea id="next-action" rows="2"></textarea></label>
+      <label class="span-2"><span>On-call signal</span><input id="on-call"></label>
+      <label class="span-2"><span>Main risk or gap</span><textarea id="risk" rows="2"></textarea></label>
+      <label class="span-2"><span>Notes</span><textarea id="notes" rows="3"></textarea></label>
+      <label><span><input id="archived" type="checkbox"> Archived</span></label>
+      <label class="span-2" id="status-note-field"><span>Status change note</span><input id="status-note" placeholder="Optional context for the activity log"></label>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="button button-danger" id="delete-job" hidden>Delete</button>
+      <span class="form-message" id="form-message"></span>
+      <button type="button" class="button button-secondary" id="cancel-dialog">Cancel</button>
+      <button type="submit" class="button button-primary">Save job</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
