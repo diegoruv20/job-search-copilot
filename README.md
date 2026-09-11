@@ -6,7 +6,7 @@ and outreach workflows, and interview coaching without hosting personal data.
 
 ## Five-minute setup
 
-Requirements: Python 3.10+ and GitHub Copilot CLI.
+Requirements: Python 3.10+ with the Windows `py` launcher and GitHub Copilot CLI.
 
 ```powershell
 git clone <your-private-repository-url>
@@ -90,6 +90,10 @@ creates a safety backup before changing the database.
 See [architecture](docs/architecture.md), [Copilot workflows](docs/workflows.md),
 [data and privacy](docs/data-and-privacy.md), and
 [troubleshooting](docs/troubleshooting.md).
+
+The committed MCP configuration targets Windows. On macOS or Linux, change its
+launcher command from `py` with `-3` to `python3`; the launcher still selects the
+checkout's `.venv`.
 
 ## Development
 

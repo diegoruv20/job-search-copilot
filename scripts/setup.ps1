@@ -11,4 +11,9 @@ if ($SkipTests) {
     $arguments += "--skip-tests"
 }
 
-python @arguments
+$launcher = Get-Command py -ErrorAction SilentlyContinue
+if ($launcher) {
+    & py -3 @arguments
+} else {
+    & python @arguments
+}
