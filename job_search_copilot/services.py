@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from sqlalchemy import case, or_
 
-from models import (
+from .models import (
     FRESHNESS_BUCKETS,
     Job,
     SankeySnapshot,

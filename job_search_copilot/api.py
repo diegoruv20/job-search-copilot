@@ -1,6 +1,6 @@
 from flask import Blueprint, current_app, jsonify, request
 
-from services import (
+from .services import (
     TrackerNotFoundError,
     TrackerValidationError,
     backfill_sankey_history,
@@ -17,7 +17,7 @@ from services import (
     stats,
     update_job,
 )
-from workspace import workspace_status
+from .workspace import workspace_status
 
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")

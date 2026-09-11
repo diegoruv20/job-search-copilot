@@ -2,15 +2,15 @@ import argparse
 import json
 
 from app import create_app
-from data_portability import (
+from job_search_copilot.data_portability import (
     backup_database,
     export_json,
     import_json,
     load_demo,
     restore_database,
 )
-from services import stats
-from workspace import workspace_status
+from job_search_copilot.services import stats
+from job_search_copilot.workspace import workspace_status
 
 
 def run_command(args):

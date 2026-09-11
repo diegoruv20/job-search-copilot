@@ -10,8 +10,8 @@ Job Search Copilot is a local-first, single-user workspace:
 
 - Flask renders the dashboard at `http://127.0.0.1:5050`.
 - SQLite stores private state under `instance/` by default.
-- `services.py` is the domain source of truth.
-- `api.py` exposes the domain through REST for the browser.
+- `job_search_copilot/services.py` is the domain source of truth.
+- `job_search_copilot/api.py` exposes the domain through REST for the browser.
 - `mcp_server.py` exposes typed local tools over standard input/output.
 - Playwright is used for external websites and UI verification.
 
@@ -75,7 +75,8 @@ Detailed routing and example prompts are in `docs/workflows.md`.
   `.github/skills/safe-customization/SKILL.md`.
 - Preserve existing user data and behavior. Back up the database before schema,
   replacement, or destructive changes and test upgrades on temporary data.
-- Keep REST and MCP behavior in parity by changing `services.py` first.
+- Keep REST and MCP behavior in parity by changing
+  `job_search_copilot/services.py` first.
 - Add tests for every state transition, destructive guard, and MCP tool.
 - Preserve accessible empty, loading, success, and error states on desktop and
   mobile.
