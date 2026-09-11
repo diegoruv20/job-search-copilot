@@ -57,6 +57,14 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         finally:
             script.close()
 
+        stylesheet = self.client.get("/static/css/style.css")
+        try:
+            self.assertEqual(stylesheet.status_code, 200)
+            self.assertIn(b"scrollbar-color: #475569 var(--bg)", stylesheet.data)
+            self.assertIn(b"*::-webkit-scrollbar-track", stylesheet.data)
+        finally:
+            stylesheet.close()
+
     def test_workspace_readiness_is_available_to_dashboard(self):
         workspace = {
             "ok": False,
