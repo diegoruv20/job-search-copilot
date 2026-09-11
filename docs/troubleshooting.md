@@ -9,20 +9,22 @@
 `ok` becomes true after the database, MCP configuration, private profile, and
 experience inventory are present.
 
-## Copilot does not show tracker or Playwright tools
+## The agent does not show tracker or Playwright tools
 
 1. Run `python scripts/bootstrap.py`.
-2. Start Copilot CLI from the repository root.
-3. Trust the repository when prompted.
-4. Open `/mcp` and confirm `job-search-copilot` and `playwright` are enabled.
-5. Restart the CLI after changing `.github/mcp.json`.
+2. Start the agent from the repository root.
+3. Confirm its project-level MCP configuration includes `job-search-copilot` and
+   `playwright`.
+4. Restart the client after changing its MCP settings.
 
-The committed MCP configuration calls a standard-library launcher, which then
-uses the checkout's `.venv` Python. This avoids depending on shell activation.
-The launcher passes paths as a subprocess argument list so repository paths
-containing spaces are supported.
-It uses the Windows `py -3` launcher. On macOS or Linux, use `python3` and remove
-the `-3` argument in `.github/mcp.json`.
+Copilot CLI uses `.github/mcp.json` automatically. Other clients can use the
+portable definitions in `config/mcp.windows.json` or `config/mcp.posix.json`; see
+[agent setup](agents.md).
+
+The tracker definition calls a standard-library launcher, which then uses the
+checkout's `.venv` Python. This avoids depending on shell activation. The launcher
+passes paths as a subprocess argument list so repository paths containing spaces
+are supported.
 
 Playwright MCP uses a tested, pinned package version. If it does not start, verify:
 

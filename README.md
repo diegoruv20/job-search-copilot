@@ -2,7 +2,7 @@
 
 # 🚀 Job Search Copilot
 
-### Your private, AI-powered job-search command center
+### Your private, agent-powered job-search command center
 
 [![Validate](https://github.com/diegoruv20/job-search-copilot/actions/workflows/validate.yml/badge.svg)](https://github.com/diegoruv20/job-search-copilot/actions/workflows/validate.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-7c6cff.svg)](LICENSE)
@@ -13,8 +13,10 @@
 
 **Keep your personal data on your own computer.**
 
-Job Search Copilot turns GitHub Copilot CLI into a guided career strategist,
-application workspace, interview coach, and customizable local tracker.
+Job Search Copilot gives your preferred coding agent a guided career strategy,
+application, interview, and customizable local-tracker workflow. GitHub Copilot
+CLI is fully configured out of the box, while the core works with any MCP-capable
+agent.
 
 ![Job Search Copilot dashboard with fictional demo data](docs/images/dashboard-demo.png)
 
@@ -48,8 +50,8 @@ the details that matter.
 
 ## ⚡ Go from clone to dashboard
 
-> **Current setup target:** Windows, Python 3.10+, Node.js LTS with `npx`, and
-> GitHub Copilot CLI.
+> **Current setup target:** Windows, Python 3.10+, Node.js LTS with `npx`, and an
+> MCP-capable coding agent. GitHub Copilot CLI is the preconfigured default.
 
 ### 1. Clone and set up
 
@@ -63,13 +65,17 @@ The guided setup creates `.venv`, installs dependencies, initializes a blank
 SQLite tracker, creates private profile templates, runs tests, and checks MCP
 readiness. Existing profiles and tracker data are never overwritten.
 
-### 2. Start Copilot
+### 2. Choose your agent
 
-Run `copilot` from the repository, trust the folder, and open `/mcp`. You should
-see:
+For GitHub Copilot CLI, run `copilot` from the repository, trust the folder, and
+open `/mcp`. You should see:
 
 - `job-search-copilot` — manages your local tracker
 - `playwright` — researches job sites and checks the dashboard
+
+For another MCP-capable agent, follow [Use your preferred agent](docs/agents.md)
+and copy the portable Windows or POSIX server definitions into that client's
+project configuration.
 
 ### 3. Let it learn your real experience
 
@@ -80,7 +86,7 @@ Skip the giant questionnaire. Start a short, guided interview:
 > files after each round, and help me identify realistic role families and
 > positioning.
 
-Copilot maps your systems, projects, personal ownership, metrics, preferences,
+Your agent maps your systems, projects, personal ownership, metrics, preferences,
 constraints, and transferable experience before recommending roles.
 
 ### 4. Open your command center
@@ -149,10 +155,10 @@ replacement flags. Restore creates a safety backup before changing the database.
 ## 🧠 How it works
 
 ```text
-Copilot CLI --> tracker MCP ----\
-                                 > services.py --> SQLAlchemy --> local SQLite
-Dashboard ----> Flask REST -----/
-Playwright ---> job sites and dashboard
+Coding agent --> tracker MCP ----\
+                                  > services.py --> SQLAlchemy --> local SQLite
+Dashboard -----> Flask REST -----/
+Playwright ----> job sites and dashboard
 ```
 
 `services.py` owns the business rules. The browser REST API and MCP server are
@@ -180,7 +186,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a fix or feature.
 - [🧭 Guided profile onboarding](docs/profile-onboarding.md)
 - [🛠️ Safe customization](docs/customization.md)
 - [🤝 Contributing fixes and shared features](CONTRIBUTING.md)
-- [🤖 Copilot workflows](docs/workflows.md)
+- [🤖 Agent setup and MCP configuration](docs/agents.md)
+- [🧩 Portable workflows](docs/workflows.md)
 - [🏗️ Architecture](docs/architecture.md)
 - [🔐 Data ownership and recovery](docs/data-and-privacy.md)
 - [🩺 Troubleshooting](docs/troubleshooting.md)
@@ -194,6 +201,6 @@ Git.
 
 ## 🐧 macOS and Linux
 
-The committed MCP configuration currently targets Windows. On macOS or Linux,
-change the tracker command in `.github/mcp.json` from `py` with `-3` to
-`python3`; the launcher still selects the checkout's `.venv`.
+GitHub Copilot CLI's committed MCP configuration currently targets Windows.
+Other clients and operating systems can use the portable examples in
+`config/mcp.windows.json` and `config/mcp.posix.json`.

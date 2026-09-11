@@ -1,10 +1,11 @@
 # Safe customization
 
 This repository is a baseline for a personal job-search system, not a fixed
-one-size-fits-all product. Copilot can change its design, workflows, analytics,
-and features as the user's needs become clearer.
+one-size-fits-all product. A capable coding agent can change its design,
+workflows, analytics, and features as the user's needs become clearer.
 
-Start the dedicated agent with a concrete outcome:
+Give the agent the `safe-customization` playbook and a concrete outcome. Copilot
+users can select the dedicated `product-customizer` agent:
 
 > Use the product-customizer agent to add a weekly planning view. Preserve my
 > current data and workflows, show me any important design decision, and validate
@@ -15,7 +16,7 @@ Start the dedicated agent with a concrete outcome:
 - Dashboard layout, navigation, accessibility, and visual design
 - Tracker fields, filters, recommendations, and analytics
 - Personal workflow steps and reminders
-- MCP tools and Copilot-assisted workflows
+- MCP tools and agent-assisted workflows
 - Import, export, backup, and reporting features
 - Setup and onboarding for the user's environment
 
