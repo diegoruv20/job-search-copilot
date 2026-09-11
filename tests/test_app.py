@@ -36,6 +36,14 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertIn(b'id="sankey-rewind"', response.data)
         self.assertIn(b'id="workspace-panel"', response.data)
         self.assertNotIn(b'id="pipeline"', response.data)
+        self.assertLess(
+            response.data.index(b'id="recommendations"'),
+            response.data.index(b'id="sankey-chart"'),
+        )
+        self.assertLess(
+            response.data.index(b'id="sankey-chart"'),
+            response.data.index(b'id="freshness-conversion"'),
+        )
 
         script = self.client.get("/static/js/dashboard.js")
         try:
