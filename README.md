@@ -32,7 +32,7 @@ Requirements:
 - GitHub Copilot CLI
 
 ```powershell
-git clone <private-repository-url>
+git clone https://github.com/diegoruv20/job-search-copilot.git
 cd job-search-copilot
 .\scripts\setup.ps1
 ```
@@ -145,6 +145,12 @@ validated lifecycle.
 - [Architecture](docs/architecture.md)
 - [Data ownership and recovery](docs/data-and-privacy.md)
 - [Troubleshooting](docs/troubleshooting.md)
+- [Security and privacy](SECURITY.md)
+
+## License
+
+Licensed under the [MIT License](LICENSE). Fork it, adapt the local workflows,
+and make it your own while keeping personal tracker data outside Git.
 
 ## Platform notes
 

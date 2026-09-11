@@ -76,6 +76,15 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
 
         self.assertEqual(scan(), [])
 
+    def test_privacy_scan_includes_git_history(self):
+        from scripts.privacy_scan import historical_blobs
+
+        blobs = historical_blobs()
+        self.assertTrue(blobs)
+        self.assertTrue(
+            any(path == Path("scripts/privacy_scan.py") for _, path in blobs)
+        )
+
     def test_bootstrap_explains_progress_and_failure(self):
         script = (ROOT / "scripts" / "bootstrap.py").read_text(encoding="utf-8")
         self.assertIn("[{number}/{TOTAL_STEPS}]", script)

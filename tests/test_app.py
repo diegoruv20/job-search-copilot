@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from datetime import date, datetime, timedelta
+from unittest import mock
 
 from app import create_app
 from models import Job, SankeySnapshot, StatusHistory, db
@@ -55,7 +56,13 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             script.close()
 
     def test_workspace_readiness_is_available_to_dashboard(self):
-        response = self.client.get("/api/workspace")
+        workspace = {
+            "ok": False,
+            "checks": {"profile_ready": False},
+            "profile": {"ready": False},
+        }
+        with mock.patch("api.workspace_status", return_value=workspace):
+            response = self.client.get("/api/workspace")
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertIn("checks", payload)

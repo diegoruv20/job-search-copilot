@@ -1,7 +1,11 @@
 import asyncio
 import os
+import socket
 import tempfile
 import unittest
+from contextlib import ExitStack
+from pathlib import Path
+from unittest import mock
 
 from mcp import Client
 
@@ -138,17 +142,48 @@ class TrackerMcpTestCase(unittest.TestCase):
         self.run_async(scenario)
 
     def test_dashboard_lifecycle_is_managed_by_pid_file(self):
-        from mcp_server import dashboard_start, dashboard_status, dashboard_stop
+        import mcp_server
 
-        started = dashboard_start()
-        self.assertTrue(started["ok"], started)
-        self.assertTrue(started["healthy"])
-        self.assertIsInstance(started["pid"], int)
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
 
-        status = dashboard_status()
-        self.assertTrue(status["healthy"])
-        self.assertEqual(status["pid"], started["pid"])
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory)
+            with ExitStack() as stack:
+                stack.enter_context(
+                    mock.patch.object(mcp_server, "RUNTIME_DIR", runtime)
+                )
+                stack.enter_context(
+                    mock.patch.object(
+                        mcp_server, "PID_PATH", runtime / "dashboard.pid"
+                    )
+                )
+                stack.enter_context(
+                    mock.patch.object(
+                        mcp_server, "LOG_PATH", runtime / "dashboard.log"
+                    )
+                )
+                stack.enter_context(mock.patch.object(mcp_server, "PORT", port))
+                stack.enter_context(
+                    mock.patch.object(
+                        mcp_server,
+                        "DASHBOARD_URL",
+                        f"http://127.0.0.1:{port}",
+                    )
+                )
 
-        stopped = dashboard_stop(confirm=True)
-        self.assertTrue(stopped["ok"], stopped)
-        self.assertTrue(stopped["stopped"])
+                started = mcp_server.dashboard_start()
+                try:
+                    self.assertTrue(started["ok"], started)
+                    self.assertTrue(started["healthy"])
+                    self.assertIsInstance(started["pid"], int)
+
+                    status = mcp_server.dashboard_status()
+                    self.assertTrue(status["healthy"])
+                    self.assertEqual(status["pid"], started["pid"])
+                finally:
+                    stopped = mcp_server.dashboard_stop(confirm=True)
+
+                self.assertTrue(stopped["ok"], stopped)
+                self.assertTrue(stopped["stopped"])
