@@ -130,6 +130,12 @@ def tracker_profile_status_resource() -> str:
     return json.dumps(get_profile_status(), indent=2)
 
 
+@mcp.resource("tracker://profile-onboarding")
+def tracker_profile_onboarding_resource() -> str:
+    """Read the systematic guided career interview workflow."""
+    return (ROOT / "docs" / "profile-onboarding.md").read_text(encoding="utf-8")
+
+
 @mcp.tool()
 def tracker_initialize() -> dict[str, Any]:
     """Create or upgrade the local database without adding jobs."""
@@ -144,7 +150,7 @@ def tracker_initialize() -> dict[str, Any]:
 
 @mcp.tool()
 def profile_status() -> dict[str, Any]:
-    """Check whether the private profile and experience inventory are configured."""
+    """Check guided-interview status, unresolved follow-ups, and the next action."""
     return {"ok": True, **get_profile_status()}
 
 

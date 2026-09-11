@@ -16,10 +16,21 @@ cd job-search-copilot
 
 The setup creates `.venv`, installs dependencies, initializes a blank database,
 copies private profile templates under `local/`, runs tests, and checks readiness.
-Edit:
+The files intentionally begin as `not started`; the guided interview completes
+them:
 
 - `local\user_profile.md`
 - `local\experience_inventory.md`
+
+You do not need to fill them out alone. Start Copilot CLI and say:
+
+> Use the career-discovery agent. Interview me to build my profile and experience
+> inventory. Ask three to five simple questions at a time, update the files after
+> each round, and help me identify realistic roles and positioning.
+
+The interview begins with your actual work and goals, deep-dives major projects,
+separates personal ownership from team results, verifies skills and metrics, and
+ends with evidence-backed role families and positioning statements.
 
 Then start Copilot CLI from this repository, trust the folder, and use `/mcp` to
 confirm that `job-search-copilot` is enabled. The committed launcher automatically
@@ -88,6 +99,7 @@ creates a safety backup before changing the database.
   personal without committing user data.
 
 See [architecture](docs/architecture.md), [Copilot workflows](docs/workflows.md),
+[profile onboarding](docs/profile-onboarding.md),
 [data and privacy](docs/data-and-privacy.md), and
 [troubleshooting](docs/troubleshooting.md).
 

@@ -16,6 +16,8 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / ".github" / "skills" / "application-tracking" / "SKILL.md",
             ROOT / ".github" / "skills" / "outreach" / "SKILL.md",
             ROOT / ".github" / "skills" / "interview-prep" / "SKILL.md",
+            ROOT / ".github" / "skills" / "profile-onboarding" / "SKILL.md",
+            ROOT / ".github" / "agents" / "career-discovery.agent.md",
             ROOT / ".github" / "agents" / "job-search.agent.md",
             ROOT / ".github" / "agents" / "application-strategist.agent.md",
             ROOT / ".github" / "agents" / "interview-coach.agent.md",
@@ -30,6 +32,7 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / "docs" / "workflows.md",
             ROOT / "docs" / "data-and-privacy.md",
             ROOT / "docs" / "troubleshooting.md",
+            ROOT / "docs" / "profile-onboarding.md",
         ]
         self.assertEqual([str(path) for path in required if not path.is_file()], [])
 
@@ -59,3 +62,46 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
 
         self.assertEqual(scan(), [])
 
+    def test_profile_readiness_requires_completed_interviews(self):
+        import tempfile
+
+        from workspace import profile_status
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            local = root / "local"
+            config = root / "config"
+            docs = root / "docs"
+            local.mkdir()
+            config.mkdir()
+            docs.mkdir()
+            (config / "user_profile.example.md").write_text("", encoding="utf-8")
+            (config / "experience_inventory.example.md").write_text(
+                "", encoding="utf-8"
+            )
+
+            missing = profile_status(root)
+            self.assertFalse(missing["ready"])
+            self.assertEqual(
+                missing["user_profile"]["interview_status"], "missing"
+            )
+
+            (local / "user_profile.md").write_text(
+                "- Interview status: in progress\n"
+                "- [Needs follow-up] Confirm location\n",
+                encoding="utf-8",
+            )
+            (local / "experience_inventory.md").write_text(
+                "- Interview status: ready\n", encoding="utf-8"
+            )
+            incomplete = profile_status(root)
+            self.assertFalse(incomplete["ready"])
+            self.assertEqual(
+                incomplete["user_profile"]["unresolved_followups"], 1
+            )
+
+            (local / "user_profile.md").write_text(
+                "- Interview status: ready\n", encoding="utf-8"
+            )
+            complete = profile_status(root)
+            self.assertTrue(complete["ready"])

@@ -1,26 +1,73 @@
 import sys
+import re
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
 
 
+def _document_status(path, template):
+    if not path.is_file():
+        return {
+            "path": str(path),
+            "exists": False,
+            "template": str(template),
+            "interview_status": "missing",
+            "unresolved_followups": 0,
+        }
+
+    text = path.read_text(encoding="utf-8")
+    match = re.search(r"(?m)^- Interview status:\s*(.+?)\s*$", text)
+    interview_status = match.group(1).strip().lower() if match else "unknown"
+    unresolved = len(re.findall(r"(?m)^-\s+\[Needs follow-up\]", text))
+    return {
+        "path": str(path),
+        "exists": True,
+        "template": str(template),
+        "interview_status": interview_status,
+        "unresolved_followups": unresolved,
+    }
+
+
 def profile_status(root=ROOT):
     root = Path(root)
     profile = root / "local" / "user_profile.md"
     experience = root / "local" / "experience_inventory.md"
+    profile_document = _document_status(
+        profile, root / "config" / "user_profile.example.md"
+    )
+    experience_document = _document_status(
+        experience, root / "config" / "experience_inventory.example.md"
+    )
+    documents = [profile_document, experience_document]
+    ready = all(
+        document["exists"]
+        and document["interview_status"] == "ready"
+        and document["unresolved_followups"] == 0
+        for document in documents
+    )
+    if not all(document["exists"] for document in documents):
+        next_action = (
+            "Run the bootstrap or copy the templates, then start the guided "
+            "career-discovery interview."
+        )
+    elif not ready:
+        next_action = (
+            "Resume the career-discovery interview. Ask three to five simple "
+            "questions, update both files after each round, and finish with a "
+            "validation playback."
+        )
+    else:
+        next_action = (
+            "The profile is ready. Revisit the interview when goals change or new "
+            "experience, outcomes, or recruiter feedback becomes available."
+        )
     return {
-        "ready": profile.is_file() and experience.is_file(),
-        "user_profile": {
-            "path": str(profile),
-            "exists": profile.is_file(),
-            "template": str(root / "config" / "user_profile.example.md"),
-        },
-        "experience_inventory": {
-            "path": str(experience),
-            "exists": experience.is_file(),
-            "template": str(root / "config" / "experience_inventory.example.md"),
-        },
+        "ready": ready,
+        "user_profile": profile_document,
+        "experience_inventory": experience_document,
+        "next_action": next_action,
+        "guide": str(root / "docs" / "profile-onboarding.md"),
     }
 
 

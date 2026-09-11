@@ -45,20 +45,26 @@ The user's private configuration belongs in:
 
 Use `config/user_profile.example.md` and
 `config/experience_inventory.example.md` as setup templates. If required evidence
-is missing, ask the user rather than filling gaps with assumptions.
+is missing, load the `profile-onboarding` skill and conduct a guided interview in
+rounds of three to five simple questions. Update the private files after each
+round, derive role hypotheses from demonstrated work, and finish with a validation
+playback. Do not make the user complete the templates alone or fill gaps with
+assumptions.
 
 ## Job-search workflow
 
-1. Check `stats_get`, `followups_due`, `recommendations_get`, and relevant existing
+1. Call `profile_status`. If the interview is incomplete, resume the guided career
+   interview before making personalized recommendations.
+2. Check `stats_get`, `followups_due`, `recommendations_get`, and relevant existing
    jobs through MCP.
-2. Search multiple role families based on the user's profile, not only one title.
-3. Open promising results on the official employer or ATS page with Playwright.
-4. Verify active status, requisition, dates, location, compensation, requirements,
+3. Search multiple role families based on the user's profile, not only one title.
+4. Open promising results on the official employer or ATS page with Playwright.
+5. Verify active status, requisition, dates, location, compensation, requirements,
    responsibilities, office expectations, application limits, and operational
    burden.
-5. Separate direct evidence, transferable evidence, gaps, and unknowns.
-6. Record only verified viable or intentionally monitored roles through MCP.
-7. Rank work, compensation, lifestyle, location, and company fit using the user's
+6. Separate direct evidence, transferable evidence, gaps, and unknowns.
+7. Record only verified viable or intentionally monitored roles through MCP.
+8. Rank work, compensation, lifestyle, location, and company fit using the user's
    stated priorities.
 
 ## Application workflow

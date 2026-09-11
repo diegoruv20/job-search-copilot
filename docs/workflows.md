@@ -1,5 +1,14 @@
 # Copilot workflows
 
+## Discover your direction first
+
+If you have not built a detailed profile, use the `career-discovery` agent before
+searching. It asks a few simple questions at a time, learns your systems and major
+projects, updates the private files continuously, and derives role families from
+evidence rather than your current title.
+
+See [profile onboarding](profile-onboarding.md).
+
 ## Discover and evaluate roles
 
 Ask the `job-search-specialist` agent to search a role family, location, or company.

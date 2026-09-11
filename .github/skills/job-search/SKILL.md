@@ -9,14 +9,18 @@ description: Discover, verify, rank, deduplicate, and track job opportunities us
 
 Call `stats_get`, `followups_due`, and `recommendations_get`. Search existing jobs
 before adding anything. Read `local/user_profile.md` and
-`local/experience_inventory.md`; if either is missing or incomplete, ask focused
-questions before making personalized claims.
+`local/experience_inventory.md`; call `profile_status`. If either file is missing,
+marked incomplete, stale, or contains unresolved follow-ups, load the
+`profile-onboarding` skill and resume the guided interview before making
+personalized claims.
 
 ## Discovery
 
-Search several relevant role families and responsibility keywords, not only one
-title. Use Playwright on human-facing job sites. Treat aggregators and social
-networks as discovery sources, not final authority.
+Search the strongest and adjacent role families derived from the evidence map,
+including multiple plausible positionings of the same experience. Search
+responsibilities and technologies, not only the user's current title. Use
+Playwright on human-facing job sites. Treat aggregators and social networks as
+discovery sources, not final authority.
 
 ## Official verification
 
