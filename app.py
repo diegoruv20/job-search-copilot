@@ -50,6 +50,9 @@ def create_app(test_config=None):
 
     with app.app_context():
         db.create_all()
+        db.session.execute(text("PRAGMA journal_mode=WAL"))
+        db.session.execute(text("PRAGMA foreign_keys=ON"))
+        db.session.execute(text("PRAGMA busy_timeout=15000"))
         ensure_job_columns()
         job_columns = {
             column["name"] for column in inspect(db.engine).get_columns("jobs")
@@ -72,5 +75,5 @@ def create_app(test_config=None):
 if __name__ == "__main__":
     debug = os.environ.get("JOB_TRACKER_DEBUG", "").lower() in {"1", "true", "yes"}
     host = os.environ.get("JOB_TRACKER_HOST", "127.0.0.1")
-    port = int(os.environ.get("JOB_TRACKER_PORT", "5001"))
+    port = int(os.environ.get("JOB_TRACKER_PORT", "5050"))
     create_app().run(debug=debug, host=host, port=port)

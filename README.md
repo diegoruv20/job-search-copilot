@@ -21,7 +21,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open `http://127.0.0.1:5001`.
+Open `http://127.0.0.1:5050`.
 
 The first run creates an empty database under `instance\applications.db`. Never
 commit that directory.

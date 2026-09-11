@@ -37,6 +37,11 @@ def meta_route():
     return jsonify(metadata())
 
 
+@api_bp.get("/health")
+def health_route():
+    return jsonify({"status": "ok"})
+
+
 @api_bp.get("/jobs")
 def list_jobs_route():
     jobs = list_jobs(
