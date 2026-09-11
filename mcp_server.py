@@ -26,6 +26,7 @@ from services import (
     TrackerNotFoundError,
     TrackerValidationError,
     create_job,
+    delete_job,
     get_job,
     history,
     list_jobs,
@@ -78,6 +79,11 @@ def _tool_result(callback):
         return _with_app(callback)
     except (TrackerValidationError, TrackerNotFoundError, ValueError) as exc:
         return {"ok": False, "error": str(exc)}
+
+
+def _delete_job_result(job_id):
+    delete_job(job_id)
+    return {"ok": True, "deleted": True, "job_id": job_id}
 
 
 def _dashboard_health(timeout=0.75):
@@ -322,6 +328,8 @@ def job_create(
 @mcp.tool()
 def job_update(
     job_id: int,
+    company: str | None = None,
+    role: str | None = None,
     status: str | None = None,
     stage: str | None = None,
     url: str | None = None,
@@ -356,6 +364,17 @@ def job_update(
     return _tool_result(
         lambda: {"ok": True, "job": update_job(job_id, payload).to_dict()}
     )
+
+
+@mcp.tool()
+def job_delete(job_id: int, confirm: bool = False) -> dict[str, Any]:
+    """Permanently delete one job; requires confirm=true."""
+    if not confirm:
+        return {
+            "ok": False,
+            "error": "Set confirm=true to permanently delete this job.",
+        }
+    return _tool_result(lambda: _delete_job_result(job_id))
 
 
 @mcp.tool()

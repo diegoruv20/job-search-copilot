@@ -16,6 +16,7 @@ EXPECTED_TOOLS = {
     "followups_due",
     "history_get",
     "job_create",
+    "job_delete",
     "job_get",
     "job_list",
     "job_update",

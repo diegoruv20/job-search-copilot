@@ -96,3 +96,24 @@ class DataPortabilityTestCase(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "company and role"):
             import_json(invalid_path, replace=True)
         self.assertEqual(Job.query.one().company, "Keep Me")
+
+    def test_import_validates_job_rules_before_replacing(self):
+        create_job({"company": "Keep Me", "role": "Engineer"})
+        export_path = Path(self.temp_dir.name) / "invalid-status.json"
+        export_json(export_path)
+        payload = json.loads(export_path.read_text(encoding="utf-8"))
+        payload["jobs"][0]["status"] = "Maybe"
+        export_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with self.assertRaisesRegex(ValueError, "Invalid status"):
+            import_json(export_path, replace=True)
+        self.assertEqual(Job.query.one().company, "Keep Me")
+
+    def test_restore_rejects_non_tracker_database(self):
+        create_job({"company": "Keep Me", "role": "Engineer"})
+        invalid_path = Path(self.temp_dir.name) / "not-a-tracker.db"
+        invalid_path.write_text("not sqlite", encoding="utf-8")
+
+        with self.assertRaisesRegex(ValueError, "valid SQLite"):
+            restore_database(invalid_path, confirm=True)
+        self.assertEqual(Job.query.one().company, "Keep Me")

@@ -7,7 +7,7 @@ from pathlib import Path
 from flask import current_app
 
 from models import Job, SankeySnapshot, StatusHistory, db
-from services import create_job
+from services import EDITABLE_FIELDS, apply_payload, create_job
 
 
 EXPORT_VERSION = 1
@@ -55,6 +55,92 @@ def _parse_record(record, date_fields=(), datetime_fields=()):
     return parsed
 
 
+def _validate_model_record(record, model, date_fields=(), datetime_fields=()):
+    if not isinstance(record, dict):
+        raise ValueError(f"Every {model.__tablename__} record must be an object")
+    columns = {column.name for column in model.__table__.columns}
+    unknown = set(record) - columns
+    if unknown:
+        raise ValueError(
+            f"Unknown {model.__tablename__} fields: {', '.join(sorted(unknown))}"
+        )
+    return _parse_record(record, date_fields, datetime_fields)
+
+
+def _validate_import_payload(payload):
+    if payload.get("version") != EXPORT_VERSION:
+        raise ValueError(f"Unsupported export version: {payload.get('version')}")
+    if not isinstance(payload.get("jobs"), list):
+        raise ValueError("Import file must contain a jobs list")
+    if not isinstance(payload.get("status_history", []), list):
+        raise ValueError("status_history must be a list")
+    if not isinstance(payload.get("sankey_snapshots", []), list):
+        raise ValueError("sankey_snapshots must be a list")
+
+    jobs = []
+    for record in payload["jobs"]:
+        if not isinstance(record, dict) or not record.get("company") or not record.get(
+            "role"
+        ):
+            raise ValueError("Every imported job requires company and role")
+        parsed = _validate_model_record(record, Job, DATE_FIELDS, DATETIME_FIELDS)
+        candidate = Job(**parsed)
+        apply_payload(
+            candidate,
+            {field: record[field] for field in EDITABLE_FIELDS if field in record},
+        )
+        jobs.append(parsed)
+
+    job_ids = {record.get("id") for record in jobs}
+    history = [
+        _validate_model_record(
+            record, StatusHistory, datetime_fields={"created_at"}
+        )
+        for record in payload.get("status_history", [])
+    ]
+    if any(record.get("job_id") not in job_ids for record in history):
+        raise ValueError("Every status history record must reference an imported job")
+
+    snapshots = [
+        _validate_model_record(
+            record, SankeySnapshot, datetime_fields={"created_at"}
+        )
+        for record in payload.get("sankey_snapshots", [])
+    ]
+    for snapshot in snapshots:
+        try:
+            data = json.loads(snapshot.get("data_json", ""))
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise ValueError("Every Sankey snapshot requires valid JSON data") from exc
+        if not isinstance(data, dict) or not isinstance(
+            data.get("nodes"), list
+        ) or not isinstance(
+            data.get("links"), list
+        ):
+            raise ValueError("Every Sankey snapshot requires nodes and links lists")
+    return jobs, history, snapshots
+
+
+def _validate_sqlite_backup(source_path):
+    try:
+        with closing(sqlite3.connect(source_path)) as source:
+            integrity = source.execute("PRAGMA quick_check").fetchone()
+            if not integrity or integrity[0] != "ok":
+                raise ValueError("Backup failed SQLite integrity validation")
+            tables = {
+                row[0]
+                for row in source.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+    except sqlite3.DatabaseError as exc:
+        raise ValueError("Restore source is not a valid SQLite database") from exc
+    required = {"jobs", "status_history", "sankey_snapshots"}
+    if not required.issubset(tables):
+        missing = ", ".join(sorted(required - tables))
+        raise ValueError(f"Restore source is missing tracker tables: {missing}")
+
+
 def backup_database(destination=None):
     source_path = database_path()
     destination_path = (
@@ -78,6 +164,7 @@ def restore_database(source, confirm=False):
     source_path = Path(source).expanduser().resolve()
     if not source_path.is_file():
         raise ValueError(f"Backup does not exist: {source_path}")
+    _validate_sqlite_backup(source_path)
 
     safety_backup = backup_database()
     target_path = database_path()
@@ -120,13 +207,7 @@ def import_json(source, replace=False):
     if not source_path.is_file():
         raise ValueError(f"Import file does not exist: {source_path}")
     payload = json.loads(source_path.read_text(encoding="utf-8"))
-    if payload.get("version") != EXPORT_VERSION:
-        raise ValueError(f"Unsupported export version: {payload.get('version')}")
-    if not isinstance(payload.get("jobs"), list):
-        raise ValueError("Import file must contain a jobs list")
-    for record in payload["jobs"]:
-        if not record.get("company") or not record.get("role"):
-            raise ValueError("Every imported job requires company and role")
+    jobs, history, snapshots = _validate_import_payload(payload)
     if Job.query.count() and not replace:
         raise ValueError("Tracker is not empty; set replace=True to import")
 
@@ -138,21 +219,15 @@ def import_json(source, replace=False):
         Job.query.delete()
         db.session.flush()
 
-    for record in payload["jobs"]:
-        db.session.add(
-            Job(**_parse_record(record, DATE_FIELDS, DATETIME_FIELDS))
-        )
+    for record in jobs:
+        db.session.add(Job(**record))
     db.session.flush()
-    for record in payload.get("status_history", []):
-        db.session.add(
-            StatusHistory(**_parse_record(record, datetime_fields={"created_at"}))
-        )
-    for record in payload.get("sankey_snapshots", []):
-        db.session.add(
-            SankeySnapshot(**_parse_record(record, datetime_fields={"created_at"}))
-        )
+    for record in history:
+        db.session.add(StatusHistory(**record))
+    for record in snapshots:
+        db.session.add(SankeySnapshot(**record))
     db.session.commit()
-    return {"jobs": len(payload["jobs"]), "safety_backup": safety_backup}
+    return {"jobs": len(jobs), "safety_backup": safety_backup}
 
 
 def load_demo(replace=False):

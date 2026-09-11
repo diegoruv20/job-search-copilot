@@ -138,7 +138,8 @@ def apply_payload(job, payload):
         }:
             value = parse_date(value, field)
         elif field == "archived":
-            value = bool(value)
+            if not isinstance(value, bool):
+                raise TrackerValidationError("archived must be a boolean")
         elif field == "recommendation_rank":
             try:
                 value = int(value) if value not in (None, "") else None
@@ -146,6 +147,10 @@ def apply_payload(job, payload):
                 raise TrackerValidationError(
                     "recommendation_rank must be an integer"
                 ) from exc
+            if value is not None and value < 1:
+                raise TrackerValidationError(
+                    "recommendation_rank must be greater than zero"
+                )
         elif isinstance(value, str):
             value = value.strip() or None
         if field == "url" and value:

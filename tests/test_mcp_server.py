@@ -31,6 +31,7 @@ class TrackerMcpTestCase(unittest.TestCase):
                 tools = await client.list_tools()
                 tool_names = {tool.name for tool in tools.tools}
                 self.assertIn("job_create", tool_names)
+                self.assertIn("job_delete", tool_names)
                 self.assertIn("application_record", tool_names)
                 self.assertIn("dashboard_start", tool_names)
 
@@ -47,6 +48,15 @@ class TrackerMcpTestCase(unittest.TestCase):
                 self.assertTrue(created.structured_content["ok"])
                 job_id = created.structured_content["job"]["id"]
 
+                renamed = await client.call_tool(
+                    "job_update",
+                    {"job_id": job_id, "role": "Principal Data Engineer"},
+                )
+                self.assertEqual(
+                    renamed.structured_content["job"]["role"],
+                    "Principal Data Engineer",
+                )
+
                 applied = await client.call_tool(
                     "application_record", {"job_id": job_id}
                 )
@@ -56,6 +66,30 @@ class TrackerMcpTestCase(unittest.TestCase):
 
                 summary = await client.call_tool("stats_get", {})
                 self.assertEqual(summary.structured_content["stats"]["applied"], 1)
+
+        self.run_async(scenario)
+
+    def test_mcp_delete_requires_confirmation(self):
+        async def scenario():
+            from mcp_server import mcp
+
+            async with Client(mcp, raise_exceptions=True) as client:
+                created = await client.call_tool(
+                    "job_create",
+                    {"company": "Delete Co", "role": "Engineer"},
+                )
+                job_id = created.structured_content["job"]["id"]
+
+                refused = await client.call_tool("job_delete", {"job_id": job_id})
+                self.assertFalse(refused.structured_content["ok"])
+
+                deleted = await client.call_tool(
+                    "job_delete", {"job_id": job_id, "confirm": True}
+                )
+                self.assertTrue(deleted.structured_content["deleted"])
+
+                listed = await client.call_tool("job_list", {})
+                self.assertEqual(listed.structured_content["jobs"], [])
 
         self.run_async(scenario)
 
