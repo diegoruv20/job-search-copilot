@@ -7,7 +7,13 @@ from pathlib import Path
 from flask import current_app
 
 from models import Job, SankeySnapshot, StatusHistory, db
-from services import EDITABLE_FIELDS, apply_payload, create_job
+from services import (
+    EDITABLE_FIELDS,
+    apply_payload,
+    build_sankey_data,
+    create_job,
+    update_job,
+)
 
 
 EXPORT_VERSION = 1
@@ -243,16 +249,109 @@ def load_demo(replace=False):
     demo_path = Path(current_app.root_path) / "data" / "demo_jobs.json"
     records = json.loads(demo_path.read_text(encoding="utf-8"))
     today = date.today()
-    for record in records:
+
+    def resolve_dates(record):
+        resolved = dict(record)
         for source, target, direction in (
             ("next_action_days_from_now", "next_action_date", 1),
             ("applied_days_ago", "applied_date", -1),
             ("first_published_days_ago", "first_published_date", -1),
+            ("posting_updated_days_ago", "posting_updated_date", -1),
+            ("linkedin_reposted_days_ago", "linkedin_reposted_date", -1),
             ("last_verified_days_ago", "last_verified_date", -1),
         ):
-            if source in record:
-                record[target] = (
-                    today + timedelta(days=direction * record.pop(source))
+            if source in resolved:
+                resolved[target] = (
+                    today + timedelta(days=direction * resolved.pop(source))
                 ).isoformat()
-    jobs = [create_job(record) for record in records]
+        return resolved
+
+    expanded_records = []
+    for template in records:
+        template = dict(template)
+        variants = template.pop("variants", None)
+        if variants:
+            expanded_records.extend({**template, **variant} for variant in variants)
+        else:
+            expanded_records.append(template)
+
+    maximum_days_ago = max(
+        (
+            event["days_ago"]
+            for record in expanded_records
+            for event in record.get("timeline", [])
+        ),
+        default=0,
+    )
+    snapshot_frames = [
+        (
+            maximum_days_ago + 3,
+            "Demo start — empty tracker",
+            build_sankey_data(),
+        )
+    ]
+
+    jobs = []
+    timelines = []
+    for raw_record in expanded_records:
+        record = dict(raw_record)
+        timeline = record.pop("timeline", [])
+        job = create_job(resolve_dates(record))
+        jobs.append(job)
+        timelines.extend((event["days_ago"], job.id, event) for event in timeline)
+
+    snapshot_frames.append(
+        (
+            maximum_days_ago + 2,
+            "Opportunities tracked — no decisions or applications yet",
+            build_sankey_data(),
+        )
+    )
+    event_days = sorted({days_ago for days_ago, _, _ in timelines}, reverse=True)
+    for days_ago in event_days:
+        for _, job_id, raw_event in (
+            item for item in timelines if item[0] == days_ago
+        ):
+            event = dict(raw_event)
+            event.pop("days_ago")
+            job = update_job(job_id, resolve_dates(event))
+            event_time = datetime.combine(
+                today - timedelta(days=days_ago),
+                datetime.min.time(),
+            ).replace(hour=12)
+            job.updated_at = event_time
+            latest_history = (
+                StatusHistory.query.filter_by(job_id=job_id)
+                .order_by(StatusHistory.id.desc())
+                .first()
+            )
+            if latest_history:
+                latest_history.created_at = event_time
+            db.session.commit()
+
+        snapshot_frames.append(
+            (
+                days_ago,
+                next(
+                    event.get("milestone")
+                    for event_days_ago, _, event in timelines
+                    if event_days_ago == days_ago and event.get("milestone")
+                ),
+                build_sankey_data(),
+            )
+        )
+
+    SankeySnapshot.query.delete()
+    for days_ago, reason, data in snapshot_frames:
+        db.session.add(
+            SankeySnapshot(
+                data_json=json.dumps(data, separators=(",", ":"), sort_keys=True),
+                reason=reason,
+                created_at=datetime.combine(
+                    today - timedelta(days=days_ago),
+                    datetime.min.time(),
+                ).replace(hour=12),
+            )
+        )
+    db.session.commit()
     return {"jobs": [job.to_dict() for job in jobs], "safety_backup": safety_backup}

@@ -8,7 +8,6 @@
     "location": "Remote, United States",
     "compensation": "$180,000-$220,000 base plus equity",
     "fit_summary": "Distributed data pipelines, platform reliability, and technical leadership",
-    "decision": "Review the application package before submitting",
     "recommendation_tier": "Apply Next",
     "recommendation_rank": 1,
     "on_call": "Rotation details not disclosed",
@@ -24,18 +23,15 @@
   {
     "company": "Juniper Works",
     "role": "Backend Software Engineer",
-    "status": "Researching",
-    "stage": "Official posting review",
+    "status": "Ready to Apply",
+    "stage": "Final resume review",
     "url": "https://example.com/jobs/juniper-backend",
     "location": "Seattle, Washington",
     "compensation": "$170,000-$205,000 base",
     "fit_summary": "Event-driven services, APIs, and production observability",
-    "decision": "Confirm office cadence and team scope",
-    "recommendation_tier": "Prepare Soon",
+    "recommendation_tier": "Apply Next",
     "recommendation_rank": 2,
-    "on_call": "Reasonable rotation reported; verify frequency",
-    "risk": "Three office days may be required",
-    "next_action": "Verify the current posting and office policy",
+    "next_action": "Finish the role-specific evidence map",
     "next_action_days_from_now": 3,
     "first_published_days_ago": 2,
     "last_verified_days_ago": 0,
@@ -44,25 +40,334 @@
     "notes": "Fictional demonstration record."
   },
   {
+    "company": "Lumen Grove",
+    "role": "AI Infrastructure Engineer",
+    "status": "Referral Prep",
+    "stage": "Warm introduction research",
+    "url": "https://example.com/jobs/lumen-ai-infrastructure",
+    "location": "Remote, United States",
+    "compensation": "$185,000-$225,000 base",
+    "fit_summary": "Evaluation data, model telemetry, and scalable platform services",
+    "recommendation_tier": "Prepare Soon",
+    "recommendation_rank": 3,
+    "next_action": "Draft the referral context and evidence map",
+    "next_action_days_from_now": 4,
+    "first_published_days_ago": 8,
+    "last_verified_days_ago": 1,
+    "freshness_source": "Fictional company careers page",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record."
+  },
+  {
+    "company": "Atlas Harbor",
+    "role": "Platform Reliability Engineer",
+    "status": "Hold",
+    "stage": "Team-scope clarification",
+    "url": "https://example.com/jobs/atlas-platform-reliability",
+    "location": "Remote, United States",
+    "compensation": "$175,000-$215,000 base",
+    "fit_summary": "Reliability automation, observability, and platform ownership",
+    "recommendation_tier": "Conditional",
+    "recommendation_rank": 4,
+    "next_action": "Confirm page volume and escalation expectations",
+    "next_action_days_from_now": 5,
+    "first_published_days_ago": 12,
+    "last_verified_days_ago": 1,
+    "freshness_source": "Fictional recruiter confirmation",
+    "freshness_confidence": "Medium",
+    "notes": "Fictional demonstration record."
+  },
+  {
+    "company": "Cobalt Research",
+    "role": "Data Services Engineer",
+    "status": "Researching",
+    "stage": "Official posting review",
+    "url": "https://example.com/jobs/cobalt-data-services",
+    "location": "Remote, United States",
+    "compensation": "$168,000-$204,000 base",
+    "fit_summary": "Data services and platform APIs",
+    "recommendation_tier": "Monitor",
+    "first_published_days_ago": 4,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional official posting",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record."
+  },
+  {
+    "company": "Oldstack Systems",
+    "role": "Principal Mainframe Specialist",
+    "status": "Researching",
+    "stage": "Qualification review",
+    "recommendation_tier": "Monitor",
+    "first_published_days_ago": 18,
+    "last_verified_days_ago": 2,
+    "freshness_source": "Fictional official posting",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "timeline": [
+      {
+        "days_ago": 22,
+        "status": "Not a Fit",
+        "decision": "Required production specialization is not supported by current evidence",
+        "not_fit_category": "Required technology stack",
+        "status_note": "Documented fictional qualification mismatch",
+        "milestone": "Not-a-fit decisions recorded"
+      }
+    ]
+  },
+  {
+    "company": "Metro Ledger",
+    "role": "Data Services Engineer",
+    "status": "Researching",
+    "stage": "Location review",
+    "recommendation_tier": "Monitor",
+    "first_published_days_ago": 9,
+    "last_verified_days_ago": 1,
+    "freshness_source": "Fictional official posting",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "timeline": [
+      {
+        "days_ago": 22,
+        "status": "Not a Fit",
+        "decision": "Five required office days conflict with the preferred work arrangement",
+        "not_fit_category": "Location / office requirement",
+        "status_note": "Documented fictional location mismatch"
+      }
+    ]
+  },
+  {
+    "role": "Backend Platform Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 28,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional official posting",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "variants": [
+      {"company": "Orbit Commerce"},
+      {"company": "Cedar Systems"},
+      {"company": "Pinecone Labs"},
+      {"company": "Delta Market"},
+      {"company": "Ember Cloud"},
+      {"company": "Granite Tools"},
+      {"company": "Horizon API"},
+      {"company": "Ion Services"}
+    ],
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "next_action": "Monitor for a response", "next_action_days_from_now": 5, "status_note": "Submitted fictional application", "milestone": "31 applications submitted"}
+    ]
+  },
+  {
+    "role": "Observability Platform Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 29,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional official posting",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "variants": [
+      {"company": "Bright Signal"},
+      {"company": "Keystone Metrics"},
+      {"company": "Mariner Telemetry"}
+    ],
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "next_action": "Prepare a concise role-fit summary", "next_action_days_from_now": 2, "status_note": "Recruiter screen scheduled", "milestone": "Recruiter screens and early outcomes"}
+    ]
+  },
+  {
+    "role": "Developer Productivity Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 30,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional ATS",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "variants": [
+      {"company": "Pioneer Tools"},
+      {"company": "Redwood Build"}
+    ],
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "status_note": "Completed recruiter screen"},
+      {"days_ago": 16, "status": "Hiring Manager", "stage": "Hiring Manager", "next_action": "Prepare platform-adoption examples", "next_action_days_from_now": 3, "status_note": "Hiring manager conversation scheduled", "milestone": "Hiring manager conversations"}
+    ]
+  },
+  {
+    "role": "Data Platform Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 31,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional company careers page",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "variants": [
+      {"company": "Cedar Labs"},
+      {"company": "Vector Lake"}
+    ],
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "status_note": "Completed recruiter screen"},
+      {"days_ago": 16, "status": "Hiring Manager", "stage": "Hiring Manager", "status_note": "Advanced to hiring manager"},
+      {"days_ago": 13, "status": "Technical Interview", "stage": "Technical Interview", "next_action": "Review coding and data-modeling practice", "next_action_days_from_now": 2, "status_note": "Technical interview scheduled", "milestone": "Technical interviews begin"}
+    ]
+  },
+  {
+    "company": "Nimbus Data",
+    "role": "Data Infrastructure Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 32,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional official posting",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "status_note": "Completed recruiter screen"},
+      {"days_ago": 16, "status": "Hiring Manager", "stage": "Hiring Manager", "status_note": "Advanced to hiring manager"},
+      {"days_ago": 13, "status": "Technical Interview", "stage": "Technical Interview", "status_note": "Completed technical interview"},
+      {"days_ago": 10, "status": "System Design", "stage": "System Design", "next_action": "Practice a multi-region ingestion design", "next_action_days_from_now": 1, "status_note": "Advanced to system design", "milestone": "System design stage"}
+    ]
+  },
+  {
+    "company": "Aurora Metrics",
+    "role": "Senior Backend Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 33,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional ATS",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "status_note": "Completed recruiter screen"},
+      {"days_ago": 16, "status": "Hiring Manager", "stage": "Hiring Manager", "status_note": "Advanced to hiring manager"},
+      {"days_ago": 13, "status": "Technical Interview", "stage": "Technical Interview", "status_note": "Advanced to technical interview"},
+      {"days_ago": 7, "status": "Onsite", "stage": "Onsite", "next_action": "Prepare final-loop questions and examples", "next_action_days_from_now": 2, "status_note": "Advanced to final loop", "milestone": "Final interview loops"}
+    ]
+  },
+  {
     "company": "Example Cloud",
     "role": "Software Engineer, Developer Platform",
-    "status": "Applied",
-    "stage": "Application submitted",
-    "url": "https://example.com/jobs/developer-platform",
-    "location": "Remote, United States",
-    "compensation": "$165,000-$210,000 base plus bonus",
-    "fit_summary": "Developer tooling, cloud infrastructure, and deployment automation",
-    "decision": "Applied after confirming the role permits the preferred location",
-    "recommendation_tier": "Active Application",
-    "on_call": "No explicit rotation",
-    "risk": "Preferred infrastructure technology is transferable rather than direct",
-    "next_action": "Monitor for recruiter response",
-    "next_action_days_from_now": 7,
-    "applied_days_ago": 0,
-    "first_published_days_ago": 7,
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 34,
     "last_verified_days_ago": 0,
     "freshness_source": "Fictional official careers page",
     "freshness_confidence": "High",
-    "notes": "Fictional demonstration record."
+    "notes": "Fictional demonstration record.",
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "status_note": "Completed recruiter screen"},
+      {"days_ago": 16, "status": "Hiring Manager", "stage": "Hiring Manager", "status_note": "Advanced to hiring manager"},
+      {"days_ago": 13, "status": "Technical Interview", "stage": "Technical Interview", "status_note": "Advanced to technical interview"},
+      {"days_ago": 10, "status": "System Design", "stage": "System Design", "status_note": "Advanced to system design"},
+      {"days_ago": 7, "status": "Onsite", "stage": "Onsite", "status_note": "Advanced to final loop"},
+      {"days_ago": 3, "status": "Offer", "stage": "Offer received", "next_action": "Review the offer package and decision criteria", "next_action_days_from_now": 3, "status_note": "Fictional offer received", "milestone": "Offer received"}
+    ]
+  },
+  {
+    "role": "Cloud Data Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 35,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional ATS",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "variants": [
+      {"company": "Harbor Robotics"},
+      {"company": "Juniper Analytics"},
+      {"company": "Kite Storage"},
+      {"company": "Lakehouse Works"},
+      {"company": "Mosaic Data"}
+    ],
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Rejected", "stage": "Resume Screen Rejection", "status_note": "Fictional resume-screen rejection"}
+    ]
+  },
+  {
+    "role": "Security Data Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 36,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional official posting",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "variants": [
+      {"company": "Quartz Security"},
+      {"company": "Ridge Defense"},
+      {"company": "Slate Trust"}
+    ],
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "status_note": "Completed recruiter screen"},
+      {"days_ago": 16, "status": "Rejected", "stage": "Recruiter Screen Rejection", "status_note": "Fictional rejection after recruiter screen"}
+    ]
+  },
+  {
+    "role": "Streaming Platform Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 37,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional company careers page",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "variants": [
+      {"company": "Vector Stream"},
+      {"company": "Willow Events"}
+    ],
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "status_note": "Completed recruiter screen"},
+      {"days_ago": 16, "status": "Hiring Manager", "stage": "Hiring Manager", "status_note": "Advanced to hiring manager"},
+      {"days_ago": 13, "status": "Rejected", "stage": "Technical Interview Rejection", "status_note": "Fictional rejection after technical stage"}
+    ]
+  },
+  {
+    "role": "Senior Platform Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 38,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional ATS",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "variants": [
+      {"company": "Summit Finance"},
+      {"company": "Yarrow Systems"}
+    ],
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 18, "status": "Recruiter Screen", "stage": "Recruiter Screen", "status_note": "Completed recruiter screen"},
+      {"days_ago": 16, "status": "Hiring Manager", "stage": "Hiring Manager", "status_note": "Advanced to hiring manager"},
+      {"days_ago": 13, "status": "Technical Interview", "stage": "Technical Interview", "status_note": "Completed technical interview"},
+      {"days_ago": 7, "status": "Rejected", "stage": "Final Interview Rejection", "status_note": "Fictional rejection after the final interview"}
+    ]
+  },
+  {
+    "company": "Drift Mobility",
+    "role": "Infrastructure Software Engineer",
+    "status": "Ready to Apply",
+    "recommendation_tier": "Apply Next",
+    "first_published_days_ago": 27,
+    "last_verified_days_ago": 0,
+    "freshness_source": "Fictional official posting",
+    "freshness_confidence": "High",
+    "notes": "Fictional demonstration record.",
+    "timeline": [
+      {"days_ago": 21, "status": "Applied", "applied_days_ago": 21, "stage": "Application submitted", "status_note": "Submitted fictional application"},
+      {"days_ago": 16, "status": "Withdrawn", "stage": "Candidate withdrawal", "status_note": "Fictional withdrawal after work-schedule clarification"}
+    ]
   }
 ]

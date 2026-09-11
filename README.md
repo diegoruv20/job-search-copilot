@@ -18,7 +18,7 @@ application, interview, and customizable local-tracker workflow. GitHub Copilot
 CLI is fully configured out of the box, while the core works with any MCP-capable
 agent.
 
-![Job Search Copilot dashboard with fictional demo data](docs/images/dashboard-demo.png)
+![Job Search Copilot dashboard with fictional demo data](docs/images/dashboard-showcase.png)
 
 <sub>✨ Example dashboard using only the repository's fictional demonstration data.</sub>
 
@@ -38,6 +38,14 @@ the details that matter.
 | 📝 | **Application strategy** | Creates evidence-based resumes, application answers, company notes, and outreach drafts without submitting or sending |
 | 🎯 | **Interview coaching** | Builds role-specific plans and runs realistic, scored practice using your confirmed experience |
 | 🛠️ | **Safe customization** | Lets an agent redesign workflows and add features while protecting local data and existing behavior |
+
+### See the application funnel move
+
+[▶ **Watch the Sankey timeline build from an empty tracker to an offer (MP4, 18 seconds)**](docs/media/application-flow-demo.mp4)
+
+The fictional playback adds tracked opportunities, records Not-a-Fit decisions,
+submits applications, and follows candidates through resume review, interviews,
+final decisions, rejections, withdrawal, and an offer.
 
 ### The important difference
 
