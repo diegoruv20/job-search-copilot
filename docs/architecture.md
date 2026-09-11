@@ -4,21 +4,23 @@ Job Search Copilot is intentionally local-first and single-user.
 
 ```text
 Coding agent --stdio--> MCP server ----\
-                                        > services.py --> SQLAlchemy --> SQLite
-Browser --------HTTP--> Flask REST -----/
-Playwright ------------> job sites and local dashboard
+                                        > job_search_copilot/services.py
+Browser --------HTTP--> Flask REST -----/              |
+Playwright ------------> job sites and dashboard       v
+                                                       SQLite
 ```
 
 ## Boundaries
 
-- `services.py` owns validation, lifecycle transitions, ranking data, statistics,
-  history, and Sankey behavior.
-- `api.py` is a thin browser-facing adapter.
+- `job_search_copilot/services.py` owns validation, lifecycle transitions,
+  ranking data, statistics, history, and Sankey behavior.
+- `job_search_copilot/api.py` is a thin browser-facing adapter.
 - `mcp_server.py` is the typed automation adapter.
 - `app.py` configures Flask, the database, and safe SQLite concurrency.
-- `data_portability.py` owns backup, restore, export, import, and demo loading.
-- `workspace.py` reports local profile and MCP readiness to setup, MCP, and the
-  dashboard without exposing file contents.
+- `job_search_copilot/data_portability.py` owns backup, restore, export, import,
+  and demo loading.
+- `job_search_copilot/workspace.py` reports local profile and MCP readiness to
+  setup, MCP, and the dashboard without exposing file contents.
 - `local/` contains private profile and application evidence and is never committed.
 
 REST and MCP must not reimplement business rules. Add or change behavior in the

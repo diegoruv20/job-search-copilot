@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from unittest import mock
 
 from app import create_app
-from models import Job, SankeySnapshot, StatusHistory, db
+from job_search_copilot.models import Job, SankeySnapshot, StatusHistory, db
 
 
 class ApplicationTrackerTestCase(unittest.TestCase):
@@ -71,7 +71,9 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             "checks": {"profile_ready": False},
             "profile": {"ready": False},
         }
-        with mock.patch("api.workspace_status", return_value=workspace):
+        with mock.patch(
+            "job_search_copilot.api.workspace_status", return_value=workspace
+        ):
             response = self.client.get("/api/workspace")
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
@@ -597,7 +599,10 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertEqual(after, before)
 
     def test_historical_sankey_backfill_uses_application_dates(self):
-        from api import backfill_sankey_history, ensure_sankey_baseline
+        from job_search_copilot.api import (
+            backfill_sankey_history,
+            ensure_sankey_baseline,
+        )
 
         yesterday = date.today() - timedelta(days=1)
         with self.app.app_context():

@@ -3,8 +3,8 @@ import tempfile
 import unittest
 
 from app import create_app
-from models import db
-from services import (
+from job_search_copilot.models import db
+from job_search_copilot.services import (
     TrackerValidationError,
     create_job,
     list_jobs,

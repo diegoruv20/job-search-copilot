@@ -1,3 +1,5 @@
+"""Database models and freshness helpers."""
+
 import json
 from datetime import date, datetime
 

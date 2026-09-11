@@ -15,14 +15,14 @@ from flask import current_app
 from mcp.server import MCPServer
 
 from app import create_app
-from data_portability import (
+from job_search_copilot.data_portability import (
     backup_database,
     export_json,
     import_json,
     load_demo,
     restore_database,
 )
-from services import (
+from job_search_copilot.services import (
     TrackerNotFoundError,
     TrackerValidationError,
     create_job,
@@ -35,7 +35,7 @@ from services import (
     stats,
     update_job,
 )
-from workspace import profile_status as get_profile_status
+from job_search_copilot.workspace import profile_status as get_profile_status
 
 
 ROOT = Path(__file__).resolve().parent
@@ -68,7 +68,7 @@ def _with_app(callback):
         try:
             return callback()
         finally:
-            from models import db
+            from job_search_copilot.models import db
 
             db.session.remove()
             db.engine.dispose()

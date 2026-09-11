@@ -23,8 +23,9 @@ alter a workflow, extend tracker data, or adapt the product to their needs.
 
 - Keep the product local-first and single-user unless the user explicitly changes
   that scope.
-- Put validation and lifecycle behavior in `services.py`.
-- Keep `api.py` and `mcp_server.py` as thin adapters over shared services.
+- Put validation and lifecycle behavior in `job_search_copilot/services.py`.
+- Keep `job_search_copilot/api.py` and `mcp_server.py` as thin adapters over
+  shared services.
 - Use MCP tools rather than direct SQLite edits for normal tracker mutations.
 - Keep private data under ignored local directories.
 - Never add telemetry, cloud synchronization, authentication, external data

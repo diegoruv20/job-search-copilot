@@ -6,8 +6,8 @@ from pathlib import Path
 
 from flask import current_app
 
-from models import Job, SankeySnapshot, StatusHistory, db
-from services import (
+from .models import Job, SankeySnapshot, StatusHistory, db
+from .services import (
     EDITABLE_FIELDS,
     apply_payload,
     build_sankey_data,

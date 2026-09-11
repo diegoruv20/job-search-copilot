@@ -5,15 +5,15 @@ import unittest
 from pathlib import Path
 
 from app import create_app
-from data_portability import (
+from job_search_copilot.data_portability import (
     backup_database,
     export_json,
     import_json,
     load_demo,
     restore_database,
 )
-from models import Job, SankeySnapshot, StatusHistory, db
-from services import build_sankey_data, create_job
+from job_search_copilot.models import Job, SankeySnapshot, StatusHistory, db
+from job_search_copilot.services import build_sankey_data, create_job
 
 
 class DataPortabilityTestCase(unittest.TestCase):

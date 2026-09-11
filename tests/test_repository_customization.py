@@ -39,6 +39,13 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / "config" / "experience_inventory.example.md",
             ROOT / "config" / "mcp.windows.json",
             ROOT / "config" / "mcp.posix.json",
+            ROOT / "job_search_copilot" / "__init__.py",
+            ROOT / "job_search_copilot" / "api.py",
+            ROOT / "job_search_copilot" / "data_portability.py",
+            ROOT / "job_search_copilot" / "models.py",
+            ROOT / "job_search_copilot" / "services.py",
+            ROOT / "job_search_copilot" / "views.py",
+            ROOT / "job_search_copilot" / "workspace.py",
             ROOT / "scripts" / "bootstrap.py",
             ROOT / "scripts" / "mcp_launcher.py",
             ROOT / "scripts" / "mcp_launcher.js",
@@ -57,6 +64,18 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / "SECURITY.md",
         ]
         self.assertEqual([str(path) for path in required if not path.is_file()], [])
+        moved_root_modules = [
+            "api.py",
+            "data_portability.py",
+            "models.py",
+            "services.py",
+            "views.py",
+            "workspace.py",
+        ]
+        self.assertEqual(
+            [name for name in moved_root_modules if (ROOT / name).exists()],
+            [],
+        )
 
     def test_skill_frontmatter_has_name_and_description(self):
         for skill_path in (ROOT / ".github" / "skills").glob("*/SKILL.md"):
@@ -228,7 +247,7 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
     def test_profile_readiness_requires_completed_interviews(self):
         import tempfile
 
-        from workspace import profile_status
+        from job_search_copilot.workspace import profile_status
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -278,7 +297,7 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         for required_rule in [
-            "services.py",
+            "job_search_copilot/services.py",
             "verified online backup",
             "idempotent upgrade path",
             "scripts\\release_check.py",

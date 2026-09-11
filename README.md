@@ -174,14 +174,14 @@ replacement flags. Restore creates a safety backup before changing the database.
 
 ```text
 Coding agent --> tracker MCP ----\
-                                  > services.py --> SQLAlchemy --> local SQLite
-Dashboard -----> Flask REST -----/
+                                  > job_search_copilot/services.py --> SQLAlchemy
+Dashboard -----> Flask REST -----/                                  --> local SQLite
 Playwright ----> job sites and dashboard
 ```
 
-`services.py` owns the business rules. The browser REST API and MCP server are
-thin adapters over the same validated lifecycle, keeping interactive and agent
-workflows consistent.
+`job_search_copilot/services.py` owns the business rules. The browser REST API
+and MCP server are thin adapters over the same validated lifecycle, keeping
+interactive and agent workflows consistent.
 
 ## 🌱 Make it your own—and share the good parts
 

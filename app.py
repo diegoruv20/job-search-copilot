@@ -4,7 +4,7 @@ from pathlib import Path
 from flask import Flask
 from sqlalchemy import inspect, text
 
-from models import db
+from job_search_copilot.models import db
 
 
 def ensure_job_columns():
@@ -41,9 +41,12 @@ def create_app(test_config=None):
     os.makedirs(database_path.parent, exist_ok=True)
     db.init_app(app)
 
-    from api import api_bp
-    from services import backfill_sankey_history, ensure_sankey_baseline
-    from views import views_bp
+    from job_search_copilot.api import api_bp
+    from job_search_copilot.services import (
+        backfill_sankey_history,
+        ensure_sankey_baseline,
+    )
+    from job_search_copilot.views import views_bp
 
     app.register_blueprint(api_bp)
     app.register_blueprint(views_bp)

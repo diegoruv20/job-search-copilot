@@ -24,8 +24,9 @@ users can select the dedicated `product-customizer` agent:
 
 The customization agent follows four layers of protection:
 
-1. **Architecture boundaries:** business rules stay in `services.py`, with REST
-   and MCP using the same implementation.
+1. **Architecture boundaries:** business rules stay in
+   `job_search_copilot/services.py`, with REST and MCP using the same
+   implementation.
 2. **Data protection:** schema and destructive changes require compatibility
    planning, temporary-database tests, and a verified backup.
 3. **Experience protection:** changes preserve familiar behavior and include

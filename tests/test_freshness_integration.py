@@ -5,7 +5,7 @@ import unittest
 from datetime import date, timedelta
 
 from app import create_app
-from models import db
+from job_search_copilot.models import db
 from sqlalchemy import text
 
 
