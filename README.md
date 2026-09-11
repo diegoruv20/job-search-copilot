@@ -15,8 +15,8 @@
 
 Job Search Copilot gives your preferred coding agent a guided career strategy,
 application, interview, and customizable local-tracker workflow. GitHub Copilot
-CLI is fully configured out of the box, while the core works with any MCP-capable
-agent.
+CLI, Codex CLI, Claude Code, and Gemini CLI are configured out of the box, while
+the core works with any MCP-capable agent.
 
 ![Job Search Copilot dashboard with fictional demo data](docs/images/dashboard-showcase.png)
 
@@ -58,8 +58,9 @@ final decisions, rejections, withdrawal, and an offer.
 
 ## ⚡ Go from clone to dashboard
 
-> **Current setup target:** Windows, Python 3.10+, Node.js LTS with `npx`, and an
-> MCP-capable coding agent. GitHub Copilot CLI is the preconfigured default.
+> **Current setup target:** Windows, Python 3.10+, Node.js LTS with `npx`, and
+> GitHub Copilot CLI, Codex CLI, Claude Code, Gemini CLI, or another MCP-capable
+> coding agent.
 
 ### 1. Clone and set up
 
@@ -75,15 +76,24 @@ readiness. Existing profiles and tracker data are never overwritten.
 
 ### 2. Choose your agent
 
-For GitHub Copilot CLI, run `copilot` from the repository, trust the folder, and
-open `/mcp`. You should see:
+Run your preferred supported client from the repository root and approve or trust
+the project configuration when prompted:
+
+| Client | Automatic project files |
+|---|---|
+| GitHub Copilot CLI | `.github/copilot-instructions.md`, `.github/mcp.json`, agents, and skills |
+| Codex CLI | `AGENTS.md`, `.codex/config.toml` |
+| Claude Code | `CLAUDE.md`, `.mcp.json` |
+| Gemini CLI | `GEMINI.md`, `.gemini/settings.json` |
+
+Each client should expose:
 
 - `job-search-copilot` — manages your local tracker
 - `playwright` — researches job sites and checks the dashboard
 
 For another MCP-capable agent, follow [Use your preferred agent](docs/agents.md)
-and copy the portable Windows or POSIX server definitions into that client's
-project configuration.
+and copy one of the portable server definitions into that client's project
+configuration.
 
 ### 3. Let it learn your real experience
 
@@ -209,6 +219,7 @@ Git.
 
 ## 🐧 macOS and Linux
 
-GitHub Copilot CLI's committed MCP configuration currently targets Windows.
-Other clients and operating systems can use the portable examples in
-`config/mcp.windows.json` and `config/mcp.posix.json`.
+The committed core-four MCP configurations use a cross-platform Node launcher
+that selects the checkout's Windows or POSIX virtual-environment Python. The
+portable examples in `config/mcp.windows.json` and `config/mcp.posix.json` remain
+available for other MCP clients.

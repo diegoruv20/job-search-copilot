@@ -1,0 +1,9 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+[mcp_servers.job-search-copilot]
+command = "node"
+args = ["scripts/mcp_launcher.js"]
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@0.0.80"]

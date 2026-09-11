@@ -1,16 +1,14 @@
 {
   "mcpServers": {
     "job-search-copilot": {
-      "type": "stdio",
       "command": "node",
       "args": ["scripts/mcp_launcher.js"],
-      "tools": ["*"]
+      "trust": false
     },
     "playwright": {
-      "type": "stdio",
       "command": "npx",
       "args": ["@playwright/mcp@0.0.80"],
-      "tools": ["*"]
+      "trust": false
     }
   }
 }

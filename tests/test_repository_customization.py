@@ -1,5 +1,6 @@
 import re
 import json
+import subprocess
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -13,6 +14,11 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
         required = [
             ROOT / ".github" / "copilot-instructions.md",
             ROOT / ".github" / "mcp.json",
+            ROOT / ".codex" / "config.toml",
+            ROOT / ".gemini" / "settings.json",
+            ROOT / ".mcp.json",
+            ROOT / "CLAUDE.md",
+            ROOT / "GEMINI.md",
             ROOT / ".github" / "PULL_REQUEST_TEMPLATE.md",
             ROOT / ".github" / "ISSUE_TEMPLATE" / "bug_report.yml",
             ROOT / ".github" / "ISSUE_TEMPLATE" / "feature_request.yml",
@@ -35,6 +41,7 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / "config" / "mcp.posix.json",
             ROOT / "scripts" / "bootstrap.py",
             ROOT / "scripts" / "mcp_launcher.py",
+            ROOT / "scripts" / "mcp_launcher.js",
             ROOT / "scripts" / "mcp_smoke.py",
             ROOT / "scripts" / "privacy_scan.py",
             ROOT / "scripts" / "release_check.py",
@@ -81,6 +88,34 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
                     cwd=root,
                 )
 
+    def test_node_mcp_launcher_is_cross_platform(self):
+        import tempfile
+
+        script = (
+            "const launcher = require('./scripts/mcp_launcher.js');"
+            "console.log(launcher.virtualenvPython(process.argv[1]));"
+        )
+        for relative_python in [
+            Path(".venv") / "Scripts" / "python.exe",
+            Path(".venv") / "bin" / "python",
+        ]:
+            with self.subTest(relative_python=relative_python):
+                with tempfile.TemporaryDirectory() as directory:
+                    python = Path(directory) / relative_python
+                    python.parent.mkdir(parents=True)
+                    python.touch()
+                    result = subprocess.run(
+                        ["node", "-e", script, directory],
+                        cwd=ROOT,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(
+                        Path(result.stdout.strip()).resolve(),
+                        python.resolve(),
+                    )
+
     def test_privacy_scan_passes_for_tracked_files(self):
         from scripts.privacy_scan import scan
 
@@ -108,9 +143,10 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             (ROOT / ".github" / "mcp.json").read_text(encoding="utf-8")
         )
         servers = config["mcpServers"]
+        self.assertEqual(servers["job-search-copilot"]["command"], "node")
         self.assertEqual(
             servers["job-search-copilot"]["args"],
-            ["-3", "scripts/mcp_launcher.py"],
+            ["scripts/mcp_launcher.js"],
         )
         self.assertEqual(servers["playwright"]["command"], "npx")
         self.assertEqual(
@@ -118,19 +154,52 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ["@playwright/mcp@0.0.80"],
         )
 
-        for portable_name, command, args in [
-            ("mcp.windows.json", "py", ["-3", "scripts/mcp_launcher.py"]),
-            ("mcp.posix.json", "python3", ["scripts/mcp_launcher.py"]),
-        ]:
+        for portable_name in ["mcp.windows.json", "mcp.posix.json"]:
             portable = json.loads(
                 (ROOT / "config" / portable_name).read_text(encoding="utf-8")
             )["mcpServers"]
-            self.assertEqual(portable["job-search-copilot"]["command"], command)
-            self.assertEqual(portable["job-search-copilot"]["args"], args)
+            self.assertEqual(portable["job-search-copilot"]["command"], "node")
+            self.assertEqual(
+                portable["job-search-copilot"]["args"],
+                ["scripts/mcp_launcher.js"],
+            )
             self.assertEqual(
                 portable["playwright"]["args"],
                 servers["playwright"]["args"],
             )
+
+    def test_core_four_agent_adapters_share_contract_and_mcp_servers(self):
+        claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+        gemini = (ROOT / "GEMINI.md").read_text(encoding="utf-8")
+        self.assertIn("`AGENTS.md`", claude)
+        self.assertIn("@./AGENTS.md", gemini)
+
+        json_configs = [
+            ROOT / ".github" / "mcp.json",
+            ROOT / ".mcp.json",
+            ROOT / ".gemini" / "settings.json",
+        ]
+        for config_path in json_configs:
+            servers = json.loads(config_path.read_text(encoding="utf-8"))[
+                "mcpServers"
+            ]
+            self.assertEqual(
+                set(servers), {"job-search-copilot", "playwright"}, config_path
+            )
+            self.assertEqual(
+                servers["job-search-copilot"]["command"], "node", config_path
+            )
+            self.assertEqual(
+                servers["job-search-copilot"]["args"],
+                ["scripts/mcp_launcher.js"],
+                config_path,
+            )
+
+        codex = (ROOT / ".codex" / "config.toml").read_text(encoding="utf-8")
+        self.assertIn("[mcp_servers.job-search-copilot]", codex)
+        self.assertIn("[mcp_servers.playwright]", codex)
+        self.assertIn('command = "node"', codex)
+        self.assertIn('args = ["scripts/mcp_launcher.js"]', codex)
 
     def test_agent_contract_and_workflows_are_portable(self):
         agent_guide = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
@@ -142,7 +211,7 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
 
         self.assertIn("vendor-neutral operating contract", agent_guide)
         self.assertIn("Follow the complete vendor-neutral", copilot)
-        self.assertIn("any MCP-capable", agent_docs)
+        self.assertIn("MCP-capable coding agent", agent_docs)
         for skill in [
             "profile-onboarding",
             "job-search",
