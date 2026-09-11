@@ -105,6 +105,24 @@ def _process_exists(pid):
         return False
 
 
+def _profile_status():
+    profile = ROOT / "local" / "user_profile.md"
+    experience = ROOT / "local" / "experience_inventory.md"
+    return {
+        "ready": profile.is_file() and experience.is_file(),
+        "user_profile": {
+            "path": str(profile),
+            "exists": profile.is_file(),
+            "template": str(ROOT / "config" / "user_profile.example.md"),
+        },
+        "experience_inventory": {
+            "path": str(experience),
+            "exists": experience.is_file(),
+            "template": str(ROOT / "config" / "experience_inventory.example.md"),
+        },
+    }
+
+
 @mcp.resource("tracker://metadata")
 def tracker_metadata() -> str:
     """Read valid tracker statuses, tiers, and classification values."""
@@ -123,6 +141,12 @@ def tracker_workflow() -> str:
     )
 
 
+@mcp.resource("tracker://profile-status")
+def tracker_profile_status_resource() -> str:
+    """Read whether private personalization files are ready."""
+    return json.dumps(_profile_status(), indent=2)
+
+
 @mcp.tool()
 def tracker_initialize() -> dict[str, Any]:
     """Create or upgrade the local database without adding jobs."""
@@ -133,6 +157,12 @@ def tracker_initialize() -> dict[str, Any]:
             "stats": stats(),
         }
     )
+
+
+@mcp.tool()
+def profile_status() -> dict[str, Any]:
+    """Check whether the private profile and experience inventory are configured."""
+    return {"ok": True, **_profile_status()}
 
 
 @mcp.tool()
