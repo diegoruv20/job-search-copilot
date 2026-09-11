@@ -41,7 +41,8 @@ def create_app(test_config=None):
     os.makedirs(database_path.parent, exist_ok=True)
     db.init_app(app)
 
-    from api import api_bp, backfill_sankey_history, ensure_sankey_baseline
+    from api import api_bp
+    from services import backfill_sankey_history, ensure_sankey_baseline
     from views import views_bp
 
     app.register_blueprint(api_bp)
