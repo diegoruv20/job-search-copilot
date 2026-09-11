@@ -10,6 +10,7 @@ from data_portability import (
     restore_database,
 )
 from services import stats
+from workspace import workspace_status
 
 
 def run_command(args):
@@ -27,6 +28,8 @@ def run_command(args):
             return {"export": str(export_json(args.destination))}
         if args.command == "import":
             return import_json(args.source, replace=args.replace)
+        if args.command == "doctor":
+            return workspace_status(app)
     raise ValueError(f"Unknown command: {args.command}")
 
 
@@ -51,6 +54,7 @@ def build_parser():
     import_parser = subparsers.add_parser("import", help="Import tracker JSON")
     import_parser.add_argument("source")
     import_parser.add_argument("--replace", action="store_true")
+    subparsers.add_parser("doctor", help="Check local setup and private profile readiness")
     return parser
 
 

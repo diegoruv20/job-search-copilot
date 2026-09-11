@@ -3,7 +3,7 @@
     "job-search-copilot": {
       "type": "stdio",
       "command": "python",
-      "args": ["mcp_server.py"],
+      "args": ["scripts/mcp_launcher.py"],
       "tools": ["*"]
     }
   }

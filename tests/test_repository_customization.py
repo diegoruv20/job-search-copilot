@@ -21,6 +21,12 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / ".github" / "agents" / "interview-coach.agent.md",
             ROOT / "config" / "user_profile.example.md",
             ROOT / "config" / "experience_inventory.example.md",
+            ROOT / "scripts" / "bootstrap.py",
+            ROOT / "scripts" / "mcp_launcher.py",
+            ROOT / "docs" / "architecture.md",
+            ROOT / "docs" / "workflows.md",
+            ROOT / "docs" / "data-and-privacy.md",
+            ROOT / "docs" / "troubleshooting.md",
         ]
         self.assertEqual([str(path) for path in required if not path.is_file()], [])
 
@@ -31,6 +37,19 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             frontmatter = text.split("---", 2)[1]
             self.assertRegex(frontmatter, r"(?m)^name: [a-z0-9-]+$")
             self.assertRegex(frontmatter, r"(?m)^description: .+$")
+
+    def test_mcp_launcher_uses_checkout_virtual_environment(self):
+        from scripts.mcp_launcher import virtualenv_python
+
+        with self.subTest("Windows layout"):
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                python = root / ".venv" / "Scripts" / "python.exe"
+                python.parent.mkdir(parents=True)
+                python.touch()
+                self.assertEqual(virtualenv_python(root), python)
 
     def test_repository_contains_no_known_private_identifiers(self):
         prohibited = [

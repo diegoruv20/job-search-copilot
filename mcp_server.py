@@ -34,6 +34,7 @@ from services import (
     stats,
     update_job,
 )
+from workspace import profile_status as get_profile_status
 
 
 ROOT = Path(__file__).resolve().parent
@@ -105,24 +106,6 @@ def _process_exists(pid):
         return False
 
 
-def _profile_status():
-    profile = ROOT / "local" / "user_profile.md"
-    experience = ROOT / "local" / "experience_inventory.md"
-    return {
-        "ready": profile.is_file() and experience.is_file(),
-        "user_profile": {
-            "path": str(profile),
-            "exists": profile.is_file(),
-            "template": str(ROOT / "config" / "user_profile.example.md"),
-        },
-        "experience_inventory": {
-            "path": str(experience),
-            "exists": experience.is_file(),
-            "template": str(ROOT / "config" / "experience_inventory.example.md"),
-        },
-    }
-
-
 @mcp.resource("tracker://metadata")
 def tracker_metadata() -> str:
     """Read valid tracker statuses, tiers, and classification values."""
@@ -144,7 +127,7 @@ def tracker_workflow() -> str:
 @mcp.resource("tracker://profile-status")
 def tracker_profile_status_resource() -> str:
     """Read whether private personalization files are ready."""
-    return json.dumps(_profile_status(), indent=2)
+    return json.dumps(get_profile_status(), indent=2)
 
 
 @mcp.tool()
@@ -162,7 +145,7 @@ def tracker_initialize() -> dict[str, Any]:
 @mcp.tool()
 def profile_status() -> dict[str, Any]:
     """Check whether the private profile and experience inventory are configured."""
-    return {"ok": True, **_profile_status()}
+    return {"ok": True, **get_profile_status()}
 
 
 @mcp.tool()
