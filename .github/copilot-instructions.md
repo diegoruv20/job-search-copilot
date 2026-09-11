@@ -108,3 +108,10 @@ through `outcome_record`.
 - Use PID-specific dashboard lifecycle handling.
 - Run `.\.venv\Scripts\python.exe scripts\release_check.py` before declaring a
   customization complete.
+- Follow `CONTRIBUTING.md` when proposing an upstream fix or feature. Separate
+  universal fixes and generalized shared features from personal customizations.
+- Personal data, hard-coded preferences, company lists, local paths, and one-off
+  workflow state must never enter an upstream pull request.
+- With explicit user approval, publish shared changes through a feature branch and
+  GitHub pull request. Never push directly to `main`; request review and resolve
+  automated checks before merge.

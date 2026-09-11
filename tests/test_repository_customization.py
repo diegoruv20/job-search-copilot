@@ -13,6 +13,10 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
         required = [
             ROOT / ".github" / "copilot-instructions.md",
             ROOT / ".github" / "mcp.json",
+            ROOT / ".github" / "PULL_REQUEST_TEMPLATE.md",
+            ROOT / ".github" / "ISSUE_TEMPLATE" / "bug_report.yml",
+            ROOT / ".github" / "ISSUE_TEMPLATE" / "feature_request.yml",
+            ROOT / ".github" / "workflows" / "validate.yml",
             ROOT / ".github" / "skills" / "job-search" / "SKILL.md",
             ROOT / ".github" / "skills" / "resume-making" / "SKILL.md",
             ROOT / ".github" / "skills" / "application-tracking" / "SKILL.md",
@@ -38,6 +42,9 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / "docs" / "troubleshooting.md",
             ROOT / "docs" / "profile-onboarding.md",
             ROOT / "docs" / "customization.md",
+            ROOT / "CONTRIBUTING.md",
+            ROOT / "LICENSE",
+            ROOT / "SECURITY.md",
         ]
         self.assertEqual([str(path) for path in required if not path.is_file()], [])
 
@@ -172,3 +179,22 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
         self.assertIn("Always load the `safe-customization` skill", agent)
         self.assertIn("Existing user data must remain readable", agent)
         self.assertIn("the work as incomplete", agent)
+
+    def test_contribution_workflow_separates_shared_and_personal_changes(self):
+        contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        agent_guide = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        workflow = (
+            ROOT / ".github" / "workflows" / "validate.yml"
+        ).read_text(encoding="utf-8")
+
+        for classification in [
+            "Universal fix",
+            "Shared feature",
+            "Personal customization",
+        ]:
+            self.assertIn(classification, contributing)
+
+        self.assertIn("Never push directly to `main`", agent_guide)
+        self.assertIn("pull_request:", workflow)
+        self.assertIn("fetch-depth: 0", workflow)
+        self.assertIn("python scripts/release_check.py", workflow)

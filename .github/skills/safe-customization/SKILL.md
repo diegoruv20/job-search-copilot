@@ -86,3 +86,23 @@ the user's working state, and either fix it or leave the change clearly blocked.
 - Record any follow-up only when it is genuinely outside the requested scope.
 - Never push, publish, or deploy unless the user asked for it or the current
   repository workflow already established that expectation.
+
+## Upstream contribution decision
+
+Before publishing, classify the change:
+
+- **Universal fix:** corrects a defect for every user. Submit a focused pull
+  request with regression coverage.
+- **Shared feature:** benefits multiple users and is configurable, opt-in, or
+  default-neutral. Generalize the idea and submit it with compatibility tests.
+- **Personal customization:** encodes one user's data, preferences, paths, ranking,
+  or one-off workflow. Keep it local or in that user's fork.
+
+A personal solution can become a shared feature when the underlying need is
+general, the implementation avoids personal assumptions, existing behavior stays
+compatible, and a blank first run remains useful.
+
+When the user approves an upstream contribution, follow `CONTRIBUTING.md`: create
+a branch, run the release gate, inspect the diff for private content, open a GitHub
+pull request, and request review. Never push directly to `main` or merge merely
+because local tests pass.

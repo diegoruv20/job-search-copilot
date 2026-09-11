@@ -1,0 +1,41 @@
+name: Shared feature request
+description: Propose a reusable feature or generalize a personal workflow.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: Describe the underlying need without including private job-search data.
+  - type: textarea
+    id: need
+    attributes:
+      label: User need
+      description: What outcome is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: Who benefits?
+      description: Explain why this is useful beyond one person's exact setup.
+    validations:
+      required: true
+  - type: textarea
+    id: generalization
+    attributes:
+      label: Generalization
+      description: How could this be configurable, opt-in, or default-neutral?
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Product boundaries
+      options:
+        - label: The proposal can preserve local-first storage and private data boundaries.
+          required: true
+        - label: The proposal does not require automatic application submission or outreach.
+          required: true
+        - label: The proposal can preserve existing databases and blank first runs.
+          required: true
