@@ -19,6 +19,20 @@
     <article class="stat-card accent-pink"><span>Offers</span><strong id="offer-stat">-</strong><small>Active offers</small></article>
   </section>
 
+  <section class="panel workspace-panel" id="workspace-panel" hidden>
+    <div class="workspace-copy">
+      <span class="eyebrow">Finish your private setup</span>
+      <h2>Teach Copilot what you have done and what you want next</h2>
+      <p>The guided interview builds an evidence-backed profile, identifies transferable experience, and derives realistic role families before searching.</p>
+      <div class="workspace-actions">
+        <button type="button" class="button button-primary" id="copy-onboarding-prompt">Copy interview prompt</button>
+        <code>Use the career-discovery agent</code>
+      </div>
+      <span class="copy-confirmation" id="copy-confirmation" role="status" aria-live="polite"></span>
+    </div>
+    <div class="readiness-list" id="readiness-list"></div>
+  </section>
+
   <section class="panel recommendations-panel">
     <div class="section-heading">
       <div><span class="eyebrow">Prioritized for you</span><h2>Recommended next moves</h2></div>
@@ -33,13 +47,6 @@
       <span class="section-note">Reposts are tracked separately and do not reset posting age</span>
     </div>
     <div class="freshness-grid" id="freshness-conversion"></div>
-  </section>
-
-  <section class="panel">
-    <div class="section-heading">
-      <div><span class="eyebrow">Progress at a glance</span><h2>Application pipeline</h2></div>
-    </div>
-    <div class="pipeline" id="pipeline"></div>
   </section>
 
   <section class="panel sankey-panel">

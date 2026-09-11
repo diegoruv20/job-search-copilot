@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from services import (
     TrackerNotFoundError,
@@ -17,6 +17,7 @@ from services import (
     stats,
     update_job,
 )
+from workspace import workspace_status
 
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -40,6 +41,11 @@ def meta_route():
 @api_bp.get("/health")
 def health_route():
     return jsonify({"status": "ok"})
+
+
+@api_bp.get("/workspace")
+def workspace_route():
+    return jsonify(workspace_status(current_app))
 
 
 @api_bp.get("/jobs")

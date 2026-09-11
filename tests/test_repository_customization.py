@@ -93,7 +93,7 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
         self.assertEqual(servers["playwright"]["command"], "npx")
         self.assertEqual(
             servers["playwright"]["args"],
-            ["@playwright/mcp@latest"],
+            ["@playwright/mcp@0.0.80"],
         )
 
     def test_profile_readiness_requires_completed_interviews(self):

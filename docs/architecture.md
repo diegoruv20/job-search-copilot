@@ -17,6 +17,8 @@ Playwright ----------> job sites and local dashboard
 - `mcp_server.py` is the typed automation adapter.
 - `app.py` configures Flask, the database, and safe SQLite concurrency.
 - `data_portability.py` owns backup, restore, export, import, and demo loading.
+- `workspace.py` reports local profile and MCP readiness to setup, MCP, and the
+  dashboard without exposing file contents.
 - `local/` contains private profile and application evidence and is never committed.
 
 REST and MCP must not reimplement business rules. Add or change behavior in the
@@ -30,6 +32,9 @@ backup API so a running dashboard can be copied consistently.
 
 No tracker data is sent to a hosted service by this repository. External job sites
 are opened only when the user asks Copilot or Playwright to research them.
+
+The dashboard reads `/api/workspace` to show onboarding steps until the private
+career interview is complete.
 
 ## Process safety
 

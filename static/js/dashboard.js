@@ -21,6 +21,7 @@ const displayDate = (value) => value
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, character => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
 })[character]);
+const onboardingPrompt = "Use the career-discovery agent. Interview me to build my job-search profile and experience inventory. Ask three to five simple questions at a time, update the files after every round, and help me identify realistic role families and positioning.";
 
 async function api(url, options = {}) {
   const response = await fetch(url, {
@@ -54,7 +55,7 @@ function freshnessChip(job) {
 }
 
 async function loadAll() {
-  const [meta, stats, recommendations, jobs, history, sankey, sankeySnapshots] = await Promise.all([
+  const [meta, stats, recommendations, jobs, history, sankey, sankeySnapshots, workspace] = await Promise.all([
     api("/api/meta"),
     api("/api/stats"),
     api("/api/recommendations"),
@@ -62,13 +63,14 @@ async function loadAll() {
     api("/api/history"),
     api("/api/sankey"),
     api("/api/sankey/snapshots"),
+    api("/api/workspace"),
   ]);
   state.meta = meta;
   renderSelects();
   renderStats(stats);
   renderFreshness(stats.freshness_conversion);
   renderRecommendations(recommendations);
-  renderPipeline(stats.status_counts);
+  renderWorkspace(workspace);
   renderHistory(history);
   renderSankeyHistory(sankeySnapshots, sankey);
   renderSankey(sankey);
@@ -140,21 +142,21 @@ function renderRecommendations(jobs) {
   `).join("");
 }
 
-function renderPipeline(counts) {
-  const groups = [
-    ["Researching", ["Researching", "Referral Prep", "Preparing"]],
-    ["Ready", ["Ready to Apply"]],
-    ["Applied", ["Applied"]],
-    ["Recruiter", ["Recruiter Screen"]],
-    ["Technical", ["Hiring Manager", "Technical Interview", "System Design"]],
-    ["Onsite", ["Onsite"]],
-    ["Offer", ["Offer"]],
-    ["Closed", ["Not a Fit", "Rejected", "Withdrawn"]],
+function renderWorkspace(workspace) {
+  const panel = $("#workspace-panel");
+  panel.hidden = workspace.profile.ready;
+  if (workspace.profile.ready) return;
+
+  const checks = [
+    ["Tracker database", workspace.checks.database_exists],
+    ["Tracker MCP", workspace.checks.mcp_configured],
+    ["Playwright MCP", workspace.checks.playwright_mcp_configured && workspace.checks.node_available],
+    ["Career profile", workspace.checks.profile_ready],
   ];
-  $("#pipeline").innerHTML = groups.map(([label, statuses]) => `
-    <div class="pipeline-step">
-      <strong>${statuses.reduce((sum, status) => sum + (counts[status] || 0), 0)}</strong>
-      <span>${label}</span>
+  $("#readiness-list").innerHTML = checks.map(([label, ready]) => `
+    <div class="readiness-item">
+      <span class="readiness-icon ${ready ? "is-ready" : ""}">${ready ? "✓" : "·"}</span>
+      <div><strong>${escapeHtml(label)}</strong><small>${ready ? "Ready" : "Action needed"}</small></div>
     </div>
   `).join("");
 }
@@ -674,18 +676,19 @@ function formPayload() {
 }
 
 async function refreshDashboard() {
-  const [stats, recommendations, history, sankey, sankeySnapshots] = await Promise.all([
+  const [stats, recommendations, history, sankey, sankeySnapshots, workspace] = await Promise.all([
     api("/api/stats"),
     api("/api/recommendations"),
     api("/api/history"),
     api("/api/sankey"),
     api("/api/sankey/snapshots"),
+    api("/api/workspace"),
   ]);
   await loadJobs();
   renderStats(stats);
   renderFreshness(stats.freshness_conversion);
   renderRecommendations(recommendations);
-  renderPipeline(stats.status_counts);
+  renderWorkspace(workspace);
   renderHistory(history);
   renderSankeyHistory(sankeySnapshots, sankey);
   renderSankey(sankey);
@@ -774,6 +777,15 @@ $("#status-filter").addEventListener("change", () => loadJobs());
 $("#tier-filter").addEventListener("change", () => loadJobs());
 $("#archive-filter").addEventListener("change", () => loadJobs());
 $("#status").addEventListener("change", updateNotFitRequirements);
+$("#copy-onboarding-prompt").addEventListener("click", async () => {
+  const confirmation = $("#copy-confirmation");
+  try {
+    await navigator.clipboard.writeText(onboardingPrompt);
+    confirmation.textContent = "Interview prompt copied.";
+  } catch {
+    confirmation.textContent = `Copy this prompt: ${onboardingPrompt}`;
+  }
+});
 
 document.addEventListener("click", event => {
   const edit = event.target.closest("[data-edit-id]");

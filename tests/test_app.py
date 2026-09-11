@@ -34,14 +34,25 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertIn(b'id="sankey-timeline-range"', response.data)
         self.assertIn(b'id="sankey-play"', response.data)
         self.assertIn(b'id="sankey-rewind"', response.data)
+        self.assertIn(b'id="workspace-panel"', response.data)
+        self.assertNotIn(b'id="pipeline"', response.data)
 
         script = self.client.get("/static/js/dashboard.js")
         try:
             self.assertEqual(script.status_code, 200)
             self.assertIn(b"sankeyGraph", script.data)
             self.assertIn(b"sankey-flow-motion", script.data)
+            self.assertNotIn(b"renderPipeline", script.data)
         finally:
             script.close()
+
+    def test_workspace_readiness_is_available_to_dashboard(self):
+        response = self.client.get("/api/workspace")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertIn("checks", payload)
+        self.assertIn("profile", payload)
+        self.assertFalse(payload["profile"]["ready"])
 
     def test_job_crud_and_status_history(self):
         create = self.client.post(
@@ -360,6 +371,32 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
             response.get_json()["error"], "Invalid freshness confidence"
+        )
+
+    def test_boolean_and_priority_fields_are_strictly_validated(self):
+        archived = self.client.post(
+            "/api/jobs",
+            json={
+                "company": "Boolean Co",
+                "role": "Engineer",
+                "archived": "false",
+            },
+        )
+        self.assertEqual(archived.status_code, 400)
+        self.assertEqual(archived.get_json()["error"], "archived must be a boolean")
+
+        rank = self.client.post(
+            "/api/jobs",
+            json={
+                "company": "Rank Co",
+                "role": "Engineer",
+                "recommendation_rank": 0,
+            },
+        )
+        self.assertEqual(rank.status_code, 400)
+        self.assertEqual(
+            rank.get_json()["error"],
+            "recommendation_rank must be greater than zero",
         )
 
     def test_stats_report_conversion_by_application_freshness(self):

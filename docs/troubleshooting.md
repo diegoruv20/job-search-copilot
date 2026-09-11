@@ -24,7 +24,7 @@ containing spaces are supported.
 It uses the Windows `py -3` launcher. On macOS or Linux, use `python3` and remove
 the `-3` argument in `.github/mcp.json`.
 
-Playwright MCP uses `npx @playwright/mcp@latest`. If it does not start, verify:
+Playwright MCP uses a tested, pinned package version. If it does not start, verify:
 
 ```powershell
 node --version
