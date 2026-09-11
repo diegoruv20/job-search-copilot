@@ -141,6 +141,7 @@ validated lifecycle.
 
 - [Guided profile onboarding](docs/profile-onboarding.md)
 - [Safe customization](docs/customization.md)
+- [Contributing fixes and shared features](CONTRIBUTING.md)
 - [Copilot workflows](docs/workflows.md)
 - [Architecture](docs/architecture.md)
 - [Data ownership and recovery](docs/data-and-privacy.md)
@@ -151,6 +152,13 @@ validated lifecycle.
 
 Licensed under the [MIT License](LICENSE). Fork it, adapt the local workflows,
 and make it your own while keeping personal tracker data outside Git.
+
+## Contributing
+
+Bug fixes and broadly useful features are welcome through GitHub pull requests.
+Personal workflows should be generalized into configurable or opt-in behavior
+before being proposed upstream; private profiles, applications, paths, and
+preferences must remain local. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Platform notes
 

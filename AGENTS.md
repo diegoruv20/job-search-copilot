@@ -15,3 +15,14 @@ location eligibility, work authorization, or personal preferences.
 
 Do not submit an application, upload a resume, send outreach, or replace tracker
 data without explicit approval.
+
+For repository fixes or reusable features, follow `CONTRIBUTING.md`. Classify the
+change before editing:
+
+- Universal fixes belong in a focused pull request.
+- Personal ideas belong upstream only after they are generalized into reusable,
+  configurable, privacy-safe behavior.
+- One-person data, preferences, paths, and workflow state stay local or in a fork.
+
+Never push directly to `main`. After user approval, create a branch, run the full
+release gate, open a pull request, and request GitHub review.

@@ -33,3 +33,13 @@ Use focused tests while developing and run
 `.\.venv\Scripts\python.exe scripts\release_check.py` before completion. Use
 Playwright for changed browser flows. If validation fails, fix the issue or report
 the work as incomplete. Never present a broken customization as finished.
+
+Before publishing, classify the result as a universal fix, generalized shared
+feature, or personal customization. Personal ideas may be proposed upstream only
+after removing hard-coded user assumptions and making differing preferences
+configurable or opt-in. Keep one-off behavior local.
+
+With explicit user approval, follow `CONTRIBUTING.md`: create a feature branch,
+run the complete release gate, inspect the diff for private data, open a GitHub
+pull request against `main`, and request review. Never push directly to `main` or
+merge a change only because the agent authored it.

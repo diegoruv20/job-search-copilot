@@ -1,0 +1,43 @@
+name: Bug report
+description: Report behavior that is incorrect for all users.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not include resumes, applications, contacts, compensation, credentials, databases, or other private job-search data.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Sanitized reproduction
+      description: Provide steps using fictional data.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Dashboard
+        - Tracker service
+        - REST API
+        - MCP server
+        - Setup
+        - Import, export, backup, or restore
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Python version, Node version, and relevant commit.
