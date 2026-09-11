@@ -8,6 +8,10 @@ Turn your real experience and preferences into evidence-backed job discovery,
 application materials, outreach drafts, interview practice, and a measurable
 application pipeline—all from a local workspace you control.
 
+![Job Search Copilot dashboard with fictional demo data](docs/images/dashboard-demo.png)
+
+<sub>Example dashboard using the repository's fictional demonstration data.</sub>
+
 </div>
 
 ## What you get
