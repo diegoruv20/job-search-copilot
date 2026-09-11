@@ -193,6 +193,7 @@ a { color: inherit; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--purple); }
 .legend-dot.active { background: var(--blue); }
 .legend-dot.positive { background: var(--green); }
+.legend-dot.offer { background: var(--amber); }
 .legend-dot.negative { background: var(--danger); }
 .sankey-chart { width: 100%; min-height: 390px; overflow-x: auto; }
 .sankey-chart svg { display: block; width: 100%; min-width: 760px; height: 390px; overflow: visible; }

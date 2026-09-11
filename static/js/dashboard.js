@@ -162,9 +162,10 @@ function renderWorkspace(workspace) {
 }
 
 function sankeyColor(name) {
-  if (name === "Not a fit" || name === "Rejected" || name === "Withdrawn" || name.startsWith("Rejected ") || name === "Other rejection") return "#f87171";
-  if (["Offer", "Onsite", "System design", "Technical interview", "Hiring manager", "Recruiter screen"].includes(name)) return "#35d39a";
-  if (["Applied", "Active / awaiting response"].includes(name)) return "#4ea5ff";
+  if (name === "Not a fit" || name === "Withdrawn" || name.startsWith("Rejected ")) return "#f87171";
+  if (name === "Offer") return "#f5b84b";
+  if (["Advanced to interviews", "Active interviewing", "Final interview", "Final interview active"].includes(name)) return "#35d39a";
+  if (["Applied", "Resume review", "No response yet"].includes(name)) return "#4ea5ff";
   if (["Not applied", "Ready to apply", "Referral prep", "Researching / preparing", "On hold"].includes(name)) return "#8b7cf6";
   return "#64748b";
 }
@@ -172,40 +173,61 @@ function sankeyColor(name) {
 const sankeyNodeOrder = new Map([
   ["Tracked roles", 0],
   ["Applied", 10],
-  ["Offer", 20],
-  ["Onsite", 30],
-  ["System design", 40],
-  ["Technical interview", 50],
-  ["Hiring manager", 60],
-  ["Recruiter screen", 70],
-  ["Active / awaiting response", 80],
-  ["Withdrawn", 90],
-  ["Rejected", 100],
-  ["Rejected after onsite", 110],
-  ["Rejected after technical stage", 120],
-  ["Rejected after recruiter screen", 130],
-  ["Rejected at resume screen", 140],
-  ["Other rejection", 150],
-  ["Not applied", 160],
-  ["Ready to apply", 170],
-  ["Referral prep", 180],
-  ["Researching / preparing", 190],
-  ["On hold", 200],
-  ["Not a fit", 210],
-  ["Required experience / seniority", 220],
-  ["Required technology stack", 230],
-  ["Role specialization mismatch", 240],
-  ["Work-life / on-call", 250],
-  ["Location / office requirement", 260],
-  ["Compensation insufficient", 270],
-  ["Posting stale / high competition", 280],
-  ["Superseded by stronger opportunity", 290],
-  ["Excluded company / industry", 300],
-  ["Other documented reason", 310],
+  ["Resume review", 20],
+  ["Advanced to interviews", 30],
+  ["No response yet", 40],
+  ["Rejected at resume review", 50],
+  ["Withdrawn", 55],
+  ["Final interview", 60],
+  ["Active interviewing", 70],
+  ["Rejected during interviews", 80],
+  ["Offer", 90],
+  ["Final interview active", 100],
+  ["Rejected after final interview", 110],
+  ["Not applied", 130],
+  ["Ready to apply", 140],
+  ["Referral prep", 150],
+  ["Researching / preparing", 160],
+  ["On hold", 170],
+  ["Not a fit", 180],
+  ["Required experience / seniority", 190],
+  ["Required technology stack", 200],
+  ["Role specialization mismatch", 210],
+  ["Work-life / on-call", 220],
+  ["Location / office requirement", 230],
+  ["Compensation insufficient", 240],
+  ["Posting stale / high competition", 250],
+  ["Superseded by stronger opportunity", 260],
+  ["Excluded company / industry", 270],
+  ["Other documented reason", 280],
 ]);
 
 function sankeyOrder(name) {
   return sankeyNodeOrder.get(name) ?? Number.MAX_SAFE_INTEGER;
+}
+
+function sankeyDepth(name) {
+  if (name === "Tracked roles") return 0;
+  if (["Applied", "Not applied"].includes(name)) return 1;
+  if (["Resume review", "Ready to apply", "Referral prep", "Researching / preparing", "On hold", "Not a fit"].includes(name)) return 2;
+  if (["No response yet", "Rejected at resume review", "Advanced to interviews", "Withdrawn"].includes(name)) return 3;
+  if (["Active interviewing", "Rejected during interviews", "Final interview"].includes(name)) return 4;
+  if (["Final interview active", "Rejected after final interview", "Offer"].includes(name)) return 5;
+  if (
+    [
+      "Required experience / seniority",
+      "Required technology stack",
+      "Role specialization mismatch",
+      "Work-life / on-call",
+      "Location / office requirement",
+      "Compensation insufficient",
+      "Posting stale / high competition",
+      "Superseded by stronger opportunity",
+      "Excluded company / industry",
+      "Other documented reason",
+    ].includes(name)
+  ) return 3;
+  return 2;
 }
 
 function sankeyLinkId(link) {
@@ -370,7 +392,7 @@ function renderSankey(data) {
   const graph = d3.sankey()
     .nodeWidth(16)
     .nodePadding(17)
-    .nodeAlign(d3.sankeyJustify)
+    .nodeAlign((node, columns) => Math.min(sankeyDepth(node.name), columns - 1))
     .nodeSort((left, right) => sankeyOrder(left.name) - sankeyOrder(right.name))
     .linkSort((left, right) => sankeyOrder(left.target.name) - sankeyOrder(right.target.name))
     .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])({

@@ -122,7 +122,7 @@ class TrackerMcpTestCase(unittest.TestCase):
             async with Client(mcp, raise_exceptions=True) as client:
                 first = await client.call_tool("tracker_demo_load", {})
                 self.assertTrue(first.structured_content["ok"])
-                self.assertEqual(len(first.structured_content["jobs"]), 3)
+                self.assertEqual(len(first.structured_content["jobs"]), 38)
 
                 second = await client.call_tool("tracker_demo_load", {})
                 self.assertFalse(second.structured_content["ok"])

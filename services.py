@@ -208,25 +208,45 @@ def build_sankey_data(jobs=None):
         jobs = Job.query.filter(
             or_(Job.archived.is_(False), Job.applied_date.is_not(None))
         ).all()
-    interview_stages = {
-        "Recruiter Screen": "Recruiter screen",
-        "Hiring Manager": "Hiring manager",
-        "Technical Interview": "Technical interview",
-        "System Design": "System design",
-        "Onsite": "Onsite",
+    interview_statuses = {
+        "Recruiter Screen",
+        "Hiring Manager",
+        "Technical Interview",
+        "System Design",
+        "Onsite",
+        "Offer",
     }
+    final_statuses = {"Onsite", "Offer"}
 
-    def rejection_type(job):
+    def reached_status(job, statuses):
+        if job.status in statuses:
+            return True
+        return any(
+            item.new_status in statuses
+            for item in getattr(job, "histories", [])
+        )
+
+    def outcome_phase(job):
         stage = (job.stage or "").lower()
-        if "resume" in stage:
-            return "Rejected at resume screen"
-        if "recruiter" in stage:
-            return "Rejected after recruiter screen"
-        if any(word in stage for word in ("technical", "coding", "system design")):
-            return "Rejected after technical stage"
-        if "onsite" in stage:
-            return "Rejected after onsite"
-        return "Other rejection"
+        if any(marker in stage for marker in ("final", "onsite")):
+            return "final"
+        if any(
+            marker in stage
+            for marker in (
+                "recruiter",
+                "hiring manager",
+                "technical",
+                "coding",
+                "system design",
+                "interview",
+            )
+        ):
+            return "interview"
+        if reached_status(job, final_statuses):
+            return "final"
+        if reached_status(job, interview_statuses):
+            return "interview"
+        return "resume"
 
     links = {}
 
@@ -237,17 +257,38 @@ def build_sankey_data(jobs=None):
     for job in jobs:
         if job.applied_date:
             add("Tracked roles", "Applied")
+            add("Applied", "Resume review")
+            phase = outcome_phase(job)
+
+            if job.status == "Rejected" and phase == "resume":
+                add("Resume review", "Rejected at resume review")
+                continue
+            if job.status == "Withdrawn":
+                add("Resume review", "Withdrawn")
+                continue
+            if job.status == "Applied" or (
+                job.status not in {"Rejected", "Withdrawn"}
+                and not reached_status(job, interview_statuses)
+            ):
+                add("Resume review", "No response yet")
+                continue
+
+            add("Resume review", "Advanced to interviews")
+
+            if job.status == "Rejected" and phase == "interview":
+                add("Advanced to interviews", "Rejected during interviews")
+                continue
+            if phase != "final":
+                add("Advanced to interviews", "Active interviewing")
+                continue
+
+            add("Advanced to interviews", "Final interview")
             if job.status == "Rejected":
-                add("Applied", "Rejected")
-                add("Rejected", rejection_type(job))
-            elif job.status == "Withdrawn":
-                add("Applied", "Withdrawn")
+                add("Final interview", "Rejected after final interview")
             elif job.status == "Offer":
-                add("Applied", "Offer")
-            elif job.status in interview_stages:
-                add("Applied", interview_stages[job.status])
+                add("Final interview", "Offer")
             else:
-                add("Applied", "Active / awaiting response")
+                add("Final interview", "Final interview active")
         else:
             add("Tracked roles", "Not applied")
             if job.status == "Ready to Apply":

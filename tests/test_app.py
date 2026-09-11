@@ -35,6 +35,7 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertIn(b'id="sankey-timeline-range"', response.data)
         self.assertIn(b'id="sankey-play"', response.data)
         self.assertIn(b'id="sankey-rewind"', response.data)
+        self.assertIn(b'class="legend-dot offer"', response.data)
         self.assertIn(b'id="workspace-panel"', response.data)
         self.assertNotIn(b'id="pipeline"', response.data)
         self.assertLess(
@@ -51,6 +52,7 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertEqual(script.status_code, 200)
             self.assertIn(b"sankeyGraph", script.data)
             self.assertIn(b"sankey-flow-motion", script.data)
+            self.assertIn(b'if (name === "Offer") return "#f5b84b"', script.data)
             self.assertNotIn(b"renderPipeline", script.data)
         finally:
             script.close()
@@ -121,13 +123,13 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         node_indexes = {
             node["name"]: index for index, node in enumerate(sankey["nodes"])
         }
-        technical_link = next(
+        interview_rejection = next(
             link
             for link in sankey["links"]
-            if link["source"] == node_indexes["Rejected"]
-            and link["target"] == node_indexes["Rejected after technical stage"]
+            if link["source"] == node_indexes["Advanced to interviews"]
+            and link["target"] == node_indexes["Rejected during interviews"]
         )
-        self.assertEqual(technical_link["value"], 1)
+        self.assertEqual(interview_rejection["value"], 1)
 
     def test_stats_and_recommendations(self):
         with self.app.app_context():
@@ -333,7 +335,7 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             if node_names[link["source"]] == "Tracked roles"
         ]
         self.assertEqual(sum(link["value"] for link in tracked_links), 2)
-        self.assertIn("Rejected at resume screen", node_names)
+        self.assertIn("Rejected at resume review", node_names)
 
     def test_invalid_date_is_rejected(self):
         response = self.client.post(
@@ -490,16 +492,48 @@ class ApplicationTrackerTestCase(unittest.TestCase):
                         status="Ready to Apply",
                         recommendation_tier="Apply Next",
                     ),
+                    Job(
+                        company="Final Loop Co",
+                        role="Engineer",
+                        status="Rejected",
+                        stage="Final Interview Rejection",
+                        applied_date=date.today(),
+                        recommendation_tier="Monitor",
+                    ),
                 ]
             )
             db.session.commit()
 
         data = self.client.get("/api/sankey").get_json()
         nodes = {node["name"] for node in data["nodes"]}
-        self.assertIn("Rejected", nodes)
-        self.assertIn("Rejected at resume screen", nodes)
-        self.assertIn("Recruiter screen", nodes)
+        self.assertIn("Resume review", nodes)
+        self.assertIn("Rejected at resume review", nodes)
+        self.assertIn("Rejected after final interview", nodes)
+        self.assertIn("Active interviewing", nodes)
         self.assertIn("Ready to apply", nodes)
+
+    def test_sankey_keeps_withdrawn_beside_resume_review_outcomes(self):
+        with self.app.app_context():
+            db.session.add(
+                Job(
+                    company="Withdrawn Co",
+                    role="Engineer",
+                    status="Withdrawn",
+                    stage="Final Interview",
+                    applied_date=date.today(),
+                    recommendation_tier="Monitor",
+                )
+            )
+            db.session.commit()
+
+        data = self.client.get("/api/sankey").get_json()
+        nodes = [node["name"] for node in data["nodes"]]
+        links = {
+            (nodes[link["source"]], nodes[link["target"]])
+            for link in data["links"]
+        }
+        self.assertIn(("Resume review", "Withdrawn"), links)
+        self.assertNotIn(("Final interview", "Withdrawn"), links)
 
     def test_sankey_snapshot_history_tracks_funnel_changes(self):
         baseline = self.client.get("/api/sankey/snapshots").get_json()

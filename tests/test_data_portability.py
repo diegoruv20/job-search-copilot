@@ -13,7 +13,7 @@ from data_portability import (
     restore_database,
 )
 from models import Job, SankeySnapshot, StatusHistory, db
-from services import create_job
+from services import build_sankey_data, create_job
 
 
 class DataPortabilityTestCase(unittest.TestCase):
@@ -38,9 +38,61 @@ class DataPortabilityTestCase(unittest.TestCase):
     def test_blank_first_run_and_opt_in_demo(self):
         self.assertEqual(Job.query.count(), 0)
         result = load_demo()
-        self.assertEqual(len(result["jobs"]), 3)
-        self.assertEqual(Job.query.count(), 3)
+        self.assertEqual(len(result["jobs"]), 38)
+        self.assertEqual(Job.query.count(), 38)
         self.assertTrue(all("Fictional" in job.notes for job in Job.query.all()))
+        self.assertEqual(SankeySnapshot.query.count(), 10)
+        snapshots = SankeySnapshot.query.order_by(SankeySnapshot.created_at).all()
+        self.assertEqual(
+            snapshots[0].reason,
+            "Demo start — empty tracker",
+        )
+        self.assertEqual(snapshots[0].data, {"nodes": [], "links": []})
+        self.assertEqual(
+            snapshots[1].reason,
+            "Opportunities tracked — no decisions or applications yet",
+        )
+        self.assertNotIn(
+            "Applied",
+            {node["name"] for node in snapshots[1].data["nodes"]},
+        )
+        self.assertNotIn(
+            "Not a fit",
+            {node["name"] for node in snapshots[1].data["nodes"]},
+        )
+        not_fit_snapshot = next(
+            snapshot
+            for snapshot in snapshots
+            if snapshot.reason == "Not-a-fit decisions recorded"
+        )
+        self.assertIn(
+            "Not a fit",
+            {node["name"] for node in not_fit_snapshot.data["nodes"]},
+        )
+        self.assertIn(
+            "Offer",
+            {node["name"] for node in snapshots[-1].data["nodes"]},
+        )
+
+        node_names = {node["name"] for node in build_sankey_data()["nodes"]}
+        for expected in {
+            "Ready to apply",
+            "Referral prep",
+            "On hold",
+            "Not a fit",
+            "Resume review",
+            "No response yet",
+            "Advanced to interviews",
+            "Active interviewing",
+            "Rejected at resume review",
+            "Rejected during interviews",
+            "Final interview",
+            "Final interview active",
+            "Offer",
+            "Withdrawn",
+            "Rejected after final interview",
+        }:
+            self.assertIn(expected, node_names)
 
         with self.assertRaisesRegex(ValueError, "not empty"):
             load_demo()
