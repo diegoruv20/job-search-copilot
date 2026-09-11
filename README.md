@@ -95,6 +95,7 @@ See [architecture](docs/architecture.md), [Copilot workflows](docs/workflows.md)
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe scripts\release_check.py
 ```
 
 Change domain behavior in `services.py`, then preserve REST/MCP parity. Keep MCP

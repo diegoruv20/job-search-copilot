@@ -23,6 +23,9 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / "config" / "experience_inventory.example.md",
             ROOT / "scripts" / "bootstrap.py",
             ROOT / "scripts" / "mcp_launcher.py",
+            ROOT / "scripts" / "mcp_smoke.py",
+            ROOT / "scripts" / "privacy_scan.py",
+            ROOT / "scripts" / "release_check.py",
             ROOT / "docs" / "architecture.md",
             ROOT / "docs" / "workflows.md",
             ROOT / "docs" / "data-and-privacy.md",
@@ -51,26 +54,8 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
                 python.touch()
                 self.assertEqual(virtualenv_python(root), python)
 
-    def test_repository_contains_no_known_private_identifiers(self):
-        prohibited = [
-            "ruvalcaba",
-            "diegoruv",
-            "application_tracker_2026",
-            "g:\\\\my drive\\\\personal",
-        ]
-        text_files = []
-        for path in ROOT.rglob("*"):
-            if (
-                path.is_file()
-                and ".git" not in path.parts
-                and path != Path(__file__).resolve()
-                and path.suffix.lower()
-                in {".py", ".md", ".json", ".html", ".css", ".js", ".txt"}
-            ):
-                text_files.append(path)
+    def test_privacy_scan_passes_for_tracked_files(self):
+        from scripts.privacy_scan import scan
 
-        combined = "\n".join(
-            path.read_text(encoding="utf-8", errors="ignore") for path in text_files
-        ).lower()
-        for value in prohibited:
-            self.assertNotIn(value.lower(), combined)
+        self.assertEqual(scan(), [])
+

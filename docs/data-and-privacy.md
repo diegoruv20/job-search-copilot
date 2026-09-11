@@ -46,6 +46,7 @@ A safety backup is created before replacement.
 
 ## Before sharing
 
-Run the full test suite. Repository tests reject known private identifiers and
-ensure required customization files are present. Also inspect `git status` and
-`git ls-files` to confirm no database, profile, resume, backup, or export is staged.
+Run `python scripts/privacy_scan.py` or the complete
+`python scripts/release_check.py` gate. The scan rejects tracked databases,
+profiles, resumes, backups, exports, private absolute paths, and optional private
+markers supplied through `JOB_SEARCH_PRIVATE_MARKERS`.
