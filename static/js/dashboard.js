@@ -545,6 +545,16 @@ function renderSankey(data) {
 function renderJobs() {
   $("#result-count").textContent = `${state.jobs.length} ${state.jobs.length === 1 ? "job" : "jobs"}`;
   $("#empty-state").hidden = state.jobs.length !== 0;
+  const hasFilters = Boolean(
+    $("#search-input")?.value.trim()
+    || $("#status-filter")?.value
+    || $("#tier-filter")?.value
+    || ($("#archive-filter")?.value || "active") !== "active"
+  );
+  $("#empty-state-title").textContent = hasFilters ? "No jobs match these filters." : "Start your private job-search workspace.";
+  $("#empty-state-copy").textContent = hasFilters
+    ? "Adjust the filters or add a new opportunity."
+    : "Add your first verified role here, or ask Copilot to load fictional demo data through the local tracker MCP server.";
   $("#jobs-table").innerHTML = state.jobs.map(job => `
     <tr data-job-id="${job.id}">
       <td>
@@ -756,6 +766,7 @@ $("#delete-job").addEventListener("click", async () => {
 });
 
 $("#add-job-button").addEventListener("click", () => openDialog());
+$("#empty-add-job").addEventListener("click", () => openDialog());
 $("#close-dialog").addEventListener("click", closeDialog);
 $("#cancel-dialog").addEventListener("click", closeDialog);
 $("#search-input").addEventListener("input", () => loadJobs());

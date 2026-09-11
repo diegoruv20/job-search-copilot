@@ -285,6 +285,8 @@ tbody tr:hover { background: rgba(139, 124, 246, 0.045); }
 .activity-item time { color: #64748b; font-size: 10px; }
 .mobile-job-list { display: none; }
 .empty-state { padding: 36px; color: var(--muted); text-align: center; }
+.onboarding-state strong { display: block; margin-bottom: 8px; color: var(--text); font-size: 16px; }
+.onboarding-state p { margin: 0 auto 16px; max-width: 520px; line-height: 1.55; }
 dialog {
   width: min(850px, calc(100vw - 28px));
   max-height: calc(100vh - 32px);

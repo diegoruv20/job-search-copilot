@@ -26,6 +26,22 @@ Open `http://127.0.0.1:5050`.
 The first run creates an empty database under `instance\applications.db`. Never
 commit that directory.
 
+Initialize explicitly or load fictional demo data:
+
+```powershell
+python tracker_cli.py init
+python tracker_cli.py demo
+```
+
+Demo loading refuses to modify a non-empty tracker unless `--replace` is supplied.
+
+Create portable backups and exports:
+
+```powershell
+python tracker_cli.py backup
+python tracker_cli.py export
+```
+
 ## Tests
 
 ```powershell

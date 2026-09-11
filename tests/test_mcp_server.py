@@ -77,6 +77,21 @@ class TrackerMcpTestCase(unittest.TestCase):
 
         self.run_async(scenario)
 
+    def test_demo_loading_is_explicit_and_non_destructive(self):
+        async def scenario():
+            from mcp_server import mcp
+
+            async with Client(mcp, raise_exceptions=True) as client:
+                first = await client.call_tool("tracker_demo_load", {})
+                self.assertTrue(first.structured_content["ok"])
+                self.assertEqual(len(first.structured_content["jobs"]), 3)
+
+                second = await client.call_tool("tracker_demo_load", {})
+                self.assertFalse(second.structured_content["ok"])
+                self.assertIn("not empty", second.structured_content["error"])
+
+        self.run_async(scenario)
+
     def test_dashboard_stop_requires_confirmation(self):
         async def scenario():
             from mcp_server import mcp

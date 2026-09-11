@@ -15,6 +15,13 @@ from flask import current_app
 from mcp.server import MCPServer
 
 from app import create_app
+from data_portability import (
+    backup_database,
+    export_json,
+    import_json,
+    load_demo,
+    restore_database,
+)
 from services import (
     TrackerNotFoundError,
     TrackerValidationError,
@@ -68,7 +75,7 @@ def _with_app(callback):
 def _tool_result(callback):
     try:
         return _with_app(callback)
-    except (TrackerValidationError, TrackerNotFoundError) as exc:
+    except (TrackerValidationError, TrackerNotFoundError, ValueError) as exc:
         return {"ok": False, "error": str(exc)}
 
 
@@ -427,6 +434,43 @@ def history_get(limit: int = 12) -> dict[str, Any]:
         lambda: {
             "ok": True,
             "history": [item.to_dict() for item in history(limit)],
+        }
+    )
+
+
+@mcp.tool()
+def tracker_demo_load(replace: bool = False) -> dict[str, Any]:
+    """Load fictional demo jobs; replacement requires replace=true."""
+    return _tool_result(lambda: {"ok": True, **load_demo(replace=replace)})
+
+
+@mcp.tool()
+def tracker_backup(destination: str | None = None) -> dict[str, Any]:
+    """Create an online SQLite backup without stopping the dashboard."""
+    return _tool_result(
+        lambda: {"ok": True, "path": str(backup_database(destination))}
+    )
+
+
+@mcp.tool()
+def tracker_export(destination: str | None = None) -> dict[str, Any]:
+    """Export jobs, status history, and Sankey history to versioned JSON."""
+    return _tool_result(lambda: {"ok": True, "path": str(export_json(destination))})
+
+
+@mcp.tool()
+def tracker_import(source: str, replace: bool = False) -> dict[str, Any]:
+    """Import versioned tracker JSON; existing state requires replace=true."""
+    return _tool_result(lambda: {"ok": True, **import_json(source, replace=replace)})
+
+
+@mcp.tool()
+def tracker_restore(source: str, confirm: bool = False) -> dict[str, Any]:
+    """Restore a SQLite backup after creating a safety backup."""
+    return _tool_result(
+        lambda: {
+            "ok": True,
+            **restore_database(source, confirm=confirm),
         }
     )
 
