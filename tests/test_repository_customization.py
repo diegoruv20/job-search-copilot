@@ -1,4 +1,5 @@
 import re
+import json
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -79,6 +80,21 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
         self.assertIn("[SKIP]", script)
         self.assertIn("[ERROR] Setup stopped before completion.", script)
         self.assertIn("Setup complete", script)
+
+    def test_repository_configures_tracker_and_playwright_mcp(self):
+        config = json.loads(
+            (ROOT / ".github" / "mcp.json").read_text(encoding="utf-8")
+        )
+        servers = config["mcpServers"]
+        self.assertEqual(
+            servers["job-search-copilot"]["args"],
+            ["-3", "scripts/mcp_launcher.py"],
+        )
+        self.assertEqual(servers["playwright"]["command"], "npx")
+        self.assertEqual(
+            servers["playwright"]["args"],
+            ["@playwright/mcp@latest"],
+        )
 
     def test_profile_readiness_requires_completed_interviews(self):
         import tempfile

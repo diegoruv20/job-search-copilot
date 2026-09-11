@@ -5,6 +5,12 @@
       "command": "py",
       "args": ["-3", "scripts/mcp_launcher.py"],
       "tools": ["*"]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "tools": ["*"]
     }
   }
 }

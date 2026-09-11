@@ -4,6 +4,10 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+.playwright-mcp/
+playwright-report/
+test-results/
+job-search-dashboard-*.png
 
 # Virtual environments
 .venv/

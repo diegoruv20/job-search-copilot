@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 VENV = ROOT / ".venv"
 TOTAL_STEPS = 7
+MINIMUM_NODE_MAJOR = 18
 
 
 def announce(message=""):
@@ -36,6 +37,28 @@ def environment_python():
     return VENV / "bin" / "python"
 
 
+def check_playwright_prerequisites():
+    node = shutil.which("node")
+    npx = shutil.which("npx")
+    if not node or not npx:
+        raise OSError(
+            "Playwright MCP requires Node.js and npx. Install the current Node.js "
+            "LTS release from https://nodejs.org/, reopen the terminal, and retry."
+        )
+    result = run([node, "--version"], capture=True)
+    version = result.stdout.strip().lstrip("v")
+    try:
+        major = int(version.split(".", 1)[0])
+    except ValueError as exc:
+        raise OSError(f"Could not determine the installed Node.js version: {version}") from exc
+    if major < MINIMUM_NODE_MAJOR:
+        raise OSError(
+            f"Playwright MCP requires Node.js {MINIMUM_NODE_MAJOR} or newer; "
+            f"found {version}. Upgrade Node.js and retry."
+        )
+    return version
+
+
 def run(command, capture=False):
     try:
         return subprocess.run(
@@ -59,7 +82,9 @@ def show_readiness(result):
     profile = payload["profile"]
     for label, key in (
         ("Python version supported", "python_supported"),
-        ("Repository MCP configured", "mcp_configured"),
+        ("Tracker MCP configured", "mcp_configured"),
+        ("Playwright MCP configured", "playwright_mcp_configured"),
+        ("Node.js and npx available", "node_available"),
         ("Local database available", "database_exists"),
         ("Career interview complete", "profile_ready"),
     ):
@@ -101,9 +126,11 @@ def bootstrap(load_demo=False, run_tests=True, create_profiles=True):
 
     start_step(
         1,
-        "Preparing the Python environment",
-        "Creating or reusing the private .venv for this checkout.",
+        "Checking prerequisites and preparing Python",
+        "Verifying Node.js for Playwright MCP and creating or reusing .venv.",
     )
+    node_version = check_playwright_prerequisites()
+    announce(f"      [READY] Node.js {node_version} and npx are available.")
     if not environment_python().is_file():
         venv.EnvBuilder(with_pip=True).create(VENV)
         finish_step(f"Created virtual environment at {VENV}")
@@ -196,7 +223,7 @@ def bootstrap(load_demo=False, run_tests=True, create_profiles=True):
     announce("Setup complete")
     announce("Next:")
     announce("  1. Start Copilot CLI from this repository.")
-    announce("  2. Trust the folder and confirm job-search-copilot in /mcp.")
+    announce("  2. Trust the folder and confirm both MCP servers in /mcp.")
     announce("  3. Ask the career-discovery agent to interview you.")
     announce("  4. Start the dashboard at http://127.0.0.1:5050 when needed.")
     announce("=" * 66)

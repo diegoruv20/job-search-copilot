@@ -6,7 +6,11 @@ and outreach workflows, and interview coaching without hosting personal data.
 
 ## Five-minute setup
 
-Requirements: Python 3.10+ with the Windows `py` launcher and GitHub Copilot CLI.
+Requirements:
+
+- Python 3.10+ with the Windows `py` launcher
+- Current Node.js LTS with `npx`
+- GitHub Copilot CLI
 
 ```powershell
 git clone <your-private-repository-url>
@@ -35,8 +39,10 @@ separates personal ownership from team results, verifies skills and metrics, and
 ends with evidence-backed role families and positioning statements.
 
 Then start Copilot CLI from this repository, trust the folder, and use `/mcp` to
-confirm that `job-search-copilot` is enabled. The committed launcher automatically
-uses this checkout's virtual environment.
+confirm that `job-search-copilot` and `playwright` are enabled. The tracker
+launcher automatically uses this checkout's virtual environment. Playwright MCP
+is launched through `npx` and gives Copilot the browser required for job discovery,
+official-posting verification, application-form inspection, and dashboard checks.
 
 To preview the product with fictional jobs:
 

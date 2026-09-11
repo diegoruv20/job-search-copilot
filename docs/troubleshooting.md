@@ -9,12 +9,12 @@
 `ok` becomes true after the database, MCP configuration, private profile, and
 experience inventory are present.
 
-## Copilot does not show tracker tools
+## Copilot does not show tracker or Playwright tools
 
 1. Run `python scripts/bootstrap.py`.
 2. Start Copilot CLI from the repository root.
 3. Trust the repository when prompted.
-4. Open `/mcp` and confirm `job-search-copilot` is enabled.
+4. Open `/mcp` and confirm `job-search-copilot` and `playwright` are enabled.
 5. Restart the CLI after changing `.github/mcp.json`.
 
 The committed MCP configuration calls a standard-library launcher, which then
@@ -23,6 +23,17 @@ The launcher passes paths as a subprocess argument list so repository paths
 containing spaces are supported.
 It uses the Windows `py -3` launcher. On macOS or Linux, use `python3` and remove
 the `-3` argument in `.github/mcp.json`.
+
+Playwright MCP uses `npx @playwright/mcp@latest`. If it does not start, verify:
+
+```powershell
+node --version
+npx --version
+```
+
+Install the current Node.js LTS release and reopen the terminal if either command
+is missing. The first Playwright MCP launch may take longer while `npx` downloads
+the package.
 
 ## Dashboard does not start
 

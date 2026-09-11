@@ -1,5 +1,7 @@
 import sys
 import re
+import json
+import shutil
 from pathlib import Path
 
 
@@ -75,9 +77,18 @@ def workspace_status(app, root=ROOT):
     root = Path(root)
     database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
     database_path = database_uri.removeprefix("sqlite:///")
+    mcp_path = root / ".github" / "mcp.json"
+    try:
+        mcp_servers = json.loads(mcp_path.read_text(encoding="utf-8")).get(
+            "mcpServers", {}
+        )
+    except (FileNotFoundError, json.JSONDecodeError):
+        mcp_servers = {}
     checks = {
         "python_supported": sys.version_info >= (3, 10),
-        "mcp_configured": (root / ".github" / "mcp.json").is_file(),
+        "mcp_configured": "job-search-copilot" in mcp_servers,
+        "playwright_mcp_configured": "playwright" in mcp_servers,
+        "node_available": bool(shutil.which("node") and shutil.which("npx")),
         "database_exists": Path(database_path).is_file(),
         "profile_ready": profile_status(root)["ready"],
     }
