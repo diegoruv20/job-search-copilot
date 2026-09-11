@@ -222,9 +222,9 @@ def bootstrap(load_demo=False, run_tests=True, create_profiles=True):
     announce("=" * 66)
     announce("Setup complete")
     announce("Next:")
-    announce("  1. Start Copilot CLI from this repository.")
-    announce("  2. Trust the folder and confirm both MCP servers in /mcp.")
-    announce("  3. Ask the career-discovery agent to interview you.")
+    announce("  1. Start your preferred coding agent from this repository.")
+    announce("  2. Connect both MCP servers; see docs/agents.md.")
+    announce("  3. Ask the agent to follow the profile-onboarding workflow.")
     announce("  4. Start the dashboard at http://127.0.0.1:5050 when needed.")
     announce("=" * 66)
 

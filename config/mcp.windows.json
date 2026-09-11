@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "job-search-copilot": {
+      "type": "stdio",
+      "command": "py",
+      "args": ["-3", "scripts/mcp_launcher.py"]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp@0.0.80"]
+    }
+  }
+}

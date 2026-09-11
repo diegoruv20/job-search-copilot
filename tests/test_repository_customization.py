@@ -31,12 +31,15 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             ROOT / ".github" / "agents" / "product-customizer.agent.md",
             ROOT / "config" / "user_profile.example.md",
             ROOT / "config" / "experience_inventory.example.md",
+            ROOT / "config" / "mcp.windows.json",
+            ROOT / "config" / "mcp.posix.json",
             ROOT / "scripts" / "bootstrap.py",
             ROOT / "scripts" / "mcp_launcher.py",
             ROOT / "scripts" / "mcp_smoke.py",
             ROOT / "scripts" / "privacy_scan.py",
             ROOT / "scripts" / "release_check.py",
             ROOT / "docs" / "architecture.md",
+            ROOT / "docs" / "agents.md",
             ROOT / "docs" / "workflows.md",
             ROOT / "docs" / "data-and-privacy.md",
             ROOT / "docs" / "troubleshooting.md",
@@ -114,6 +117,44 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             servers["playwright"]["args"],
             ["@playwright/mcp@0.0.80"],
         )
+
+        for portable_name, command, args in [
+            ("mcp.windows.json", "py", ["-3", "scripts/mcp_launcher.py"]),
+            ("mcp.posix.json", "python3", ["scripts/mcp_launcher.py"]),
+        ]:
+            portable = json.loads(
+                (ROOT / "config" / portable_name).read_text(encoding="utf-8")
+            )["mcpServers"]
+            self.assertEqual(portable["job-search-copilot"]["command"], command)
+            self.assertEqual(portable["job-search-copilot"]["args"], args)
+            self.assertEqual(
+                portable["playwright"]["args"],
+                servers["playwright"]["args"],
+            )
+
+    def test_agent_contract_and_workflows_are_portable(self):
+        agent_guide = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        copilot = (
+            ROOT / ".github" / "copilot-instructions.md"
+        ).read_text(encoding="utf-8")
+        agent_docs = (ROOT / "docs" / "agents.md").read_text(encoding="utf-8")
+        workflows = (ROOT / "docs" / "workflows.md").read_text(encoding="utf-8")
+
+        self.assertIn("vendor-neutral operating contract", agent_guide)
+        self.assertIn("Follow the complete vendor-neutral", copilot)
+        self.assertIn("any MCP-capable", agent_docs)
+        for skill in [
+            "profile-onboarding",
+            "job-search",
+            "resume-making",
+            "application-tracking",
+            "outreach",
+            "interview-prep",
+            "safe-customization",
+        ]:
+            path = f".github/skills/{skill}/SKILL.md"
+            self.assertIn(path, agent_guide)
+            self.assertIn(path, workflows)
 
     def test_profile_readiness_requires_completed_interviews(self):
         import tempfile

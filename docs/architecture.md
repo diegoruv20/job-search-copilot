@@ -3,10 +3,10 @@
 Job Search Copilot is intentionally local-first and single-user.
 
 ```text
-Copilot CLI --stdio--> MCP server ----\
-                                      > services.py --> SQLAlchemy --> SQLite
-Browser ------HTTP--> Flask REST -----/
-Playwright ----------> job sites and local dashboard
+Coding agent --stdio--> MCP server ----\
+                                        > services.py --> SQLAlchemy --> SQLite
+Browser --------HTTP--> Flask REST -----/
+Playwright ------------> job sites and local dashboard
 ```
 
 ## Boundaries
@@ -26,9 +26,10 @@ service layer, then test both adapters for parity.
 
 ## Customization contract
 
-The repository is intended to evolve for each user. The `product-customizer`
-agent and `safe-customization` skill define the guarded workflow for design,
-feature, workflow, and schema changes.
+The repository is intended to evolve for each user. The portable
+`safe-customization` playbook defines the guarded workflow for design, feature,
+workflow, and schema changes. Copilot users may invoke the `product-customizer`
+agent; other clients can give the same playbook to a general-purpose agent.
 
 Customizations must preserve local-first privacy, current data, REST/MCP parity,
 and blank-first-run behavior. A schema change needs an idempotent upgrade path
@@ -43,7 +44,7 @@ logging, foreign keys, and a 15-second busy timeout. Online backups use SQLite's
 backup API so a running dashboard can be copied consistently.
 
 No tracker data is sent to a hosted service by this repository. External job sites
-are opened only when the user asks Copilot or Playwright to research them.
+are opened only when the user asks an agent or Playwright to research them.
 
 The dashboard reads `/api/workspace` to show onboarding steps until the private
 career interview is complete.
