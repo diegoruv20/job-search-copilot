@@ -16,6 +16,8 @@ cd job-search-copilot
 
 The setup creates `.venv`, installs dependencies, initializes a blank database,
 copies private profile templates under `local/`, runs tests, and checks readiness.
+It prints a numbered explanation before every stage, preserves existing private
+files, and stops with an actionable error if a step fails.
 The files intentionally begin as `not started`; the guided interview completes
 them:
 

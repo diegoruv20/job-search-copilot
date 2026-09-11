@@ -62,6 +62,14 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
 
         self.assertEqual(scan(), [])
 
+    def test_bootstrap_explains_progress_and_failure(self):
+        script = (ROOT / "scripts" / "bootstrap.py").read_text(encoding="utf-8")
+        self.assertIn("[{number}/{TOTAL_STEPS}]", script)
+        self.assertIn("[OK]", script)
+        self.assertIn("[SKIP]", script)
+        self.assertIn("[ERROR] Setup stopped before completion.", script)
+        self.assertIn("Setup complete", script)
+
     def test_profile_readiness_requires_completed_interviews(self):
         import tempfile
 
