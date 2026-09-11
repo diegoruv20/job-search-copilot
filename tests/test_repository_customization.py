@@ -89,24 +89,32 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
                 )
 
     def test_node_mcp_launcher_is_cross_platform(self):
+        import tempfile
+
         script = (
             "const launcher = require('./scripts/mcp_launcher.js');"
-            "console.log(launcher.virtualenvPython());"
+            "console.log(launcher.virtualenvPython(process.argv[1]));"
         )
-        result = subprocess.run(
-            ["node", "-e", script],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        self.assertIn(
-            Path(result.stdout.strip()).resolve(),
-            {
-                (ROOT / ".venv" / "Scripts" / "python.exe").resolve(),
-                (ROOT / ".venv" / "bin" / "python").resolve(),
-            },
-        )
+        for relative_python in [
+            Path(".venv") / "Scripts" / "python.exe",
+            Path(".venv") / "bin" / "python",
+        ]:
+            with self.subTest(relative_python=relative_python):
+                with tempfile.TemporaryDirectory() as directory:
+                    python = Path(directory) / relative_python
+                    python.parent.mkdir(parents=True)
+                    python.touch()
+                    result = subprocess.run(
+                        ["node", "-e", script, directory],
+                        cwd=ROOT,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(
+                        Path(result.stdout.strip()).resolve(),
+                        python.resolve(),
+                    )
 
     def test_privacy_scan_passes_for_tracked_files(self):
         from scripts.privacy_scan import scan
