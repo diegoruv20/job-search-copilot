@@ -2,9 +2,9 @@
 
 Job Search Copilot is not tied to one model or CLI. The dashboard, SQLite
 database, REST API, command-line utilities, and MCP server are ordinary local
-software. GitHub Copilot CLI is the preconfigured default, but any MCP-capable
-coding agent that can read repository instructions can use the same tracker and
-workflows.
+software. GitHub Copilot CLI, Codex CLI, Claude Code, and Gemini CLI have
+committed project adapters, and any other MCP-capable coding agent can use the
+same tracker and workflows.
 
 ## Portable contract
 
@@ -20,11 +20,29 @@ Every agent should:
 The `.github/skills/` files use Copilot-compatible frontmatter, but their bodies
 are portable instructions. Other agents can read them directly.
 
-## Connect MCP
+## First-class clients
 
-MCP clients use different configuration file names and settings screens, but the
-two stdio server definitions are the same. Start the client from the repository
-root so relative paths resolve correctly.
+Start the client from the repository root. Each client discovers its committed
+instructions and both MCP servers automatically after you trust or approve the
+project:
+
+| Client | Instructions | MCP configuration | Verify |
+|---|---|---|---|
+| GitHub Copilot CLI | `.github/copilot-instructions.md` → `AGENTS.md` | `.github/mcp.json` | Open `/mcp` |
+| Codex CLI | `AGENTS.md` | `.codex/config.toml` | Run `codex mcp list` |
+| Claude Code | `CLAUDE.md` → `AGENTS.md` | `.mcp.json` | Run `claude mcp list` or open `/mcp` |
+| Gemini CLI | `GEMINI.md` imports `AGENTS.md` | `.gemini/settings.json` | Open `/mcp` |
+
+Project trust and MCP approval prompts are intentional client security controls.
+The repository does not bypass them. Client choice is independent of model
+choice: using this workspace with one client does not require using its model in
+other tools.
+
+## Connect another MCP client
+
+Other MCP clients use different configuration file names and settings screens,
+but the two stdio server definitions are the same. Start the client from the
+repository root so relative paths resolve correctly.
 
 ### Windows
 
@@ -35,8 +53,8 @@ Use `config/mcp.windows.json` as the source configuration:
   "mcpServers": {
     "job-search-copilot": {
       "type": "stdio",
-      "command": "py",
-      "args": ["-3", "scripts/mcp_launcher.py"]
+      "command": "node",
+      "args": ["scripts/mcp_launcher.js"]
     },
     "playwright": {
       "type": "stdio",
@@ -49,16 +67,15 @@ Use `config/mcp.windows.json` as the source configuration:
 
 ### macOS and Linux
 
-Use `config/mcp.posix.json`, which replaces the Windows Python launcher with
-`python3`:
+Use `config/mcp.posix.json`:
 
 ```json
 {
   "mcpServers": {
     "job-search-copilot": {
       "type": "stdio",
-      "command": "python3",
-      "args": ["scripts/mcp_launcher.py"]
+      "command": "node",
+      "args": ["scripts/mcp_launcher.js"]
     },
     "playwright": {
       "type": "stdio",
@@ -77,6 +94,9 @@ your client. Do not commit machine-specific absolute paths or private data.
 | Client type | How to use this repository |
 |---|---|
 | GitHub Copilot CLI | Uses `.github/mcp.json`, `.github/copilot-instructions.md`, agents, and skills automatically |
+| Codex CLI | Uses `AGENTS.md` and `.codex/config.toml` automatically after project trust |
+| Claude Code | Uses `CLAUDE.md` and `.mcp.json` automatically after project trust and MCP approval |
+| Gemini CLI | Uses `GEMINI.md` and `.gemini/settings.json` automatically after project trust |
 | MCP-capable coding agent | Point its project MCP settings at one of the portable configs and tell it to follow `AGENTS.md` |
 | Agent without MCP | Use `tracker_cli.py` and the dashboard for read-only or manual work; do not let the agent edit SQLite |
 | Human-only workflow | Run the dashboard directly and use the CLI for backup, import, export, and diagnostics |
@@ -116,3 +136,7 @@ Run:
 ```
 
 The smoke check should report the tracker tools without writing to the database.
+
+The MCP configurations invoke `node scripts/mcp_launcher.js`. The launcher
+selects `.venv\Scripts\python.exe` on Windows or `.venv/bin/python` on macOS and
+Linux, so committed project files do not contain machine-specific paths.

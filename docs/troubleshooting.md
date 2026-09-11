@@ -17,14 +17,21 @@ experience inventory are present.
    `playwright`.
 4. Restart the client after changing its MCP settings.
 
-Copilot CLI uses `.github/mcp.json` automatically. Other clients can use the
-portable definitions in `config/mcp.windows.json` or `config/mcp.posix.json`; see
-[agent setup](agents.md).
+The core-four clients use their project files automatically:
 
-The tracker definition calls a standard-library launcher, which then uses the
-checkout's `.venv` Python. This avoids depending on shell activation. The launcher
-passes paths as a subprocess argument list so repository paths containing spaces
-are supported.
+- Copilot CLI: `.github/mcp.json`
+- Codex CLI: `.codex/config.toml`
+- Claude Code: `.mcp.json`
+- Gemini CLI: `.gemini/settings.json`
+
+Approve the project or MCP servers when the client asks. Other clients can use
+the portable definitions in `config/mcp.windows.json` or
+`config/mcp.posix.json`; see [agent setup](agents.md).
+
+The tracker definition calls a cross-platform Node launcher, which then uses the
+checkout's `.venv` Python. This avoids depending on shell activation or a
+platform-specific Python command. The launcher passes paths as a subprocess
+argument list so repository paths containing spaces are supported.
 
 Playwright MCP uses a tested, pinned package version. If it does not start, verify:
 

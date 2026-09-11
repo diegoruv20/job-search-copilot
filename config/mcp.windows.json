@@ -2,8 +2,8 @@
   "mcpServers": {
     "job-search-copilot": {
       "type": "stdio",
-      "command": "py",
-      "args": ["-3", "scripts/mcp_launcher.py"]
+      "command": "node",
+      "args": ["scripts/mcp_launcher.js"]
     },
     "playwright": {
       "type": "stdio",
