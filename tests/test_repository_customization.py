@@ -1,6 +1,7 @@
 import re
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,17 +46,26 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             self.assertRegex(frontmatter, r"(?m)^description: .+$")
 
     def test_mcp_launcher_uses_checkout_virtual_environment(self):
-        from scripts.mcp_launcher import virtualenv_python
+        from scripts.mcp_launcher import main, virtualenv_python
 
         with self.subTest("Windows layout"):
             import tempfile
 
             with tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
+                root = Path(directory) / "repo with spaces"
                 python = root / ".venv" / "Scripts" / "python.exe"
                 python.parent.mkdir(parents=True)
                 python.touch()
                 self.assertEqual(virtualenv_python(root), python)
+                with mock.patch(
+                    "scripts.mcp_launcher.subprocess.run",
+                    return_value=mock.Mock(returncode=0),
+                ) as run:
+                    self.assertEqual(main(root), 0)
+                run.assert_called_once_with(
+                    [str(python), str(root / "mcp_server.py")],
+                    cwd=root,
+                )
 
     def test_privacy_scan_passes_for_tracked_files(self):
         from scripts.privacy_scan import scan

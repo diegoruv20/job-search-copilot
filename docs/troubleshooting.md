@@ -19,6 +19,8 @@ experience inventory are present.
 
 The committed MCP configuration calls a standard-library launcher, which then
 uses the checkout's `.venv` Python. This avoids depending on shell activation.
+The launcher passes paths as a subprocess argument list so repository paths
+containing spaces are supported.
 It uses the Windows `py -3` launcher. On macOS or Linux, use `python3` and remove
 the `-3` argument in `.github/mcp.json`.
 

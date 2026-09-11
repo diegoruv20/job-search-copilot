@@ -1,4 +1,4 @@
-import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,16 +14,20 @@ def virtualenv_python(root=ROOT):
     return next((path for path in candidates if path.is_file()), None)
 
 
-def main():
-    python = virtualenv_python()
+def main(root=ROOT):
+    root = Path(root)
+    python = virtualenv_python(root)
     if python is None:
         raise SystemExit(
             "Job Search Copilot is not set up. Run "
             "`python scripts/bootstrap.py` from the repository root."
         )
-    os.chdir(ROOT)
-    os.execv(str(python), [str(python), str(ROOT / "mcp_server.py")])
+    result = subprocess.run(
+        [str(python), str(root / "mcp_server.py")],
+        cwd=root,
+    )
+    return result.returncode
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
