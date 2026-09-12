@@ -689,6 +689,10 @@ def sankey_timeline(limit=250):
         entries.append(entry)
         signatures.append(_sankey_timeline_signature(snapshot.data))
 
+    first_snapshot_is_empty = not snapshots[0].data.get("links")
+    if first_snapshot_is_empty:
+        entries[0]["empty_state"] = True
+
     selected = {0, len(snapshots) - 1}
     for index, snapshot in enumerate(snapshots):
         if snapshot.reason.startswith("Estimated replay"):
@@ -708,6 +712,21 @@ def sankey_timeline(limit=250):
         entry["grouped_count"] = index - previous_index
         highlights.append(entry)
         previous_index = index
+
+    if not first_snapshot_is_empty:
+        empty_baseline = {
+            "id": "empty-baseline",
+            "reason": "Timeline start — empty tracker",
+            "created_at": datetime.combine(
+                snapshots[0].created_at.date(), time.min
+            ).isoformat(),
+            "grouped_count": 0,
+            "empty_state": True,
+            "synthetic": True,
+            "data": {"nodes": [], "links": []},
+        }
+        entries.insert(0, empty_baseline)
+        highlights.insert(0, dict(empty_baseline))
 
     return {
         "highlights": highlights,

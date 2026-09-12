@@ -58,6 +58,8 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertIn(b"sankey-flow-motion", script.data)
             self.assertIn(b"updates grouped", script.data)
             self.assertIn(b"sankeyPlaybackDelay", script.data)
+            self.assertIn(b"data: snapshot.data || null", script.data)
+            self.assertIn(b"Timeline starts empty", script.data)
             self.assertIn(b'if (name === "Offer") return "#f5b84b"', script.data)
             self.assertNotIn(b"renderPipeline", script.data)
         finally:
@@ -147,15 +149,26 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         try:
             self.assertEqual(response.status_code, 200)
             payload = response.get_json()
-            self.assertEqual(len(payload["all_activity"]), 4)
-            self.assertEqual(len(payload["highlights"]), 3)
+            self.assertEqual(len(payload["all_activity"]), 5)
+            self.assertEqual(len(payload["highlights"]), 4)
             self.assertEqual(
                 [frame["reason"] for frame in payload["highlights"]],
-                ["timeline-0", "timeline-2", "timeline-3"],
+                [
+                    "Timeline start — empty tracker",
+                    "timeline-0",
+                    "timeline-2",
+                    "timeline-3",
+                ],
             )
             self.assertEqual(
                 [frame["grouped_count"] for frame in payload["highlights"]],
-                [1, 2, 1],
+                [0, 1, 2, 1],
+            )
+            self.assertTrue(payload["highlights"][0]["empty_state"])
+            self.assertTrue(payload["highlights"][0]["synthetic"])
+            self.assertEqual(payload["highlights"][0]["data"], {"nodes": [], "links": []})
+            self.assertTrue(
+                payload["highlights"][0]["created_at"].startswith("2026-09-10T00:00:00")
             )
         finally:
             response.close()
@@ -644,6 +657,10 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         baseline = self.client.get("/api/sankey/snapshots").get_json()
         self.assertEqual(len(baseline), 1)
         self.assertEqual(baseline[0]["reason"], "History tracking started")
+        initial_timeline = self.client.get("/api/sankey/timeline").get_json()
+        self.assertEqual(len(initial_timeline["highlights"]), 1)
+        self.assertTrue(initial_timeline["highlights"][0]["empty_state"])
+        self.assertNotIn("synthetic", initial_timeline["highlights"][0])
 
         created = self.client.post(
             "/api/jobs",
@@ -727,10 +744,11 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             db.session.commit()
 
         timeline = self.client.get("/api/sankey/timeline").get_json()
-        self.assertEqual(len(timeline["all_activity"]), 6)
+        self.assertEqual(len(timeline["all_activity"]), 7)
         self.assertEqual(
             [frame["reason"] for frame in timeline["highlights"]],
             [
+                "Timeline start — empty tracker",
                 "Added Alpha — Engineer",
                 "Charlie: Researching → Ready to Apply",
                 "Added Delta — Engineer",
@@ -739,13 +757,11 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         )
         self.assertEqual(
             [frame["grouped_count"] for frame in timeline["highlights"]],
-            [1, 3, 1, 1],
+            [0, 1, 3, 1, 1],
         )
-        self.assertTrue(
-            all(
-                frame["grouped_count"] == 1
-                for frame in timeline["all_activity"]
-            )
+        self.assertEqual(
+            [frame["grouped_count"] for frame in timeline["all_activity"]],
+            [0, 1, 1, 1, 1, 1, 1],
         )
 
     def test_non_funnel_edit_does_not_create_sankey_snapshot(self):
