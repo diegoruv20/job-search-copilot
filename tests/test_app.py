@@ -60,6 +60,8 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertIn(b"sankeyPlaybackDelay", script.data)
             self.assertIn(b"data: snapshot.data || null", script.data)
             self.assertIn(b"Timeline starts empty", script.data)
+            self.assertIn(b"compactFrameSubject", script.data)
+            self.assertIn(b"Daily snapshot", script.data)
             self.assertIn(b'if (name === "Offer") return "#f5b84b"', script.data)
             self.assertNotIn(b"renderPipeline", script.data)
         finally:

@@ -283,12 +283,31 @@ function exitingNodeGeometry(node, nextGraph) {
   return { x0: node.x0, x1: node.x1, y0: center, y1: center };
 }
 
-function frameLabel(frame) {
+function compactFrameDate(value, includeTime = true) {
+  const options = { month: "short", day: "numeric" };
+  if (includeTime) {
+    options.hour = "numeric";
+    options.minute = "2-digit";
+  }
+  return new Date(value).toLocaleString(undefined, options);
+}
+
+function compactFrameSubject(frame) {
+  if (frame.empty_state) return "Empty";
+  if (frame.reason.startsWith("Estimated replay")) return "Daily snapshot";
+  if (frame.reason === "History tracking started") return "History started";
+  const added = frame.reason.match(/^Added ([^—]+?)(?:\s+—|$)/);
+  if (added) return added[1].trim();
+  const changed = frame.reason.match(/^([^:]+):/);
+  if (changed) return changed[1].trim();
+  return frame.reason.length > 24 ? `${frame.reason.slice(0, 23)}…` : frame.reason;
+}
+
+function frameLabel(frame, index) {
   if (frame.live) return "Live view";
-  if (frame.empty_state) return `Empty · ${new Date(frame.created_at).toLocaleDateString()}`;
-  const prefix = frame.reason.startsWith("Estimated replay") ? "Estimated" : "Exact";
+  if (frame.empty_state) return `Start · ${compactFrameDate(frame.created_at, false)}`;
   const grouped = frame.grouped_count > 1 ? ` · ${frame.grouped_count} updates grouped` : "";
-  return `${prefix} · ${new Date(frame.created_at).toLocaleDateString()}${grouped}`;
+  return `Frame ${index + 1} · ${compactFrameDate(frame.created_at, false)}${grouped}`;
 }
 
 function rebuildSankeyFrames(mode = state.sankeyTimelineMode) {
@@ -304,14 +323,15 @@ function rebuildSankeyFrames(mode = state.sankeyTimelineMode) {
     { id: "", live: true, reason: "Live view", created_at: new Date().toISOString(), grouped_count: 1, data: state.sankeyLiveData },
   ];
   $("#sankey-timeline-mode").value = mode;
+  const snapshotOptions = snapshots.map((snapshot, index) => {
+    const grouped = snapshot.grouped_count > 1 ? ` · ${snapshot.grouped_count} grouped` : "";
+    const label = `${index + 1} · ${compactFrameDate(snapshot.created_at, !snapshot.empty_state)} · ${compactFrameSubject(snapshot)}${grouped}`;
+    const title = `${new Date(snapshot.created_at).toLocaleString()} — ${snapshot.reason}`;
+    return `<option value="${snapshot.id}" title="${escapeHtml(title)}">${escapeHtml(label)}</option>`;
+  }).reverse();
   $("#sankey-snapshot-select").innerHTML = [
     `<option value="">Live view</option>`,
-    ...snapshots.slice().reverse().map(snapshot => {
-      const grouped = snapshot.grouped_count > 1 ? ` · ${snapshot.grouped_count} updates grouped` : "";
-      const reason = snapshot.empty_state ? "Empty starting state" : snapshot.reason;
-      const label = `${new Date(snapshot.created_at).toLocaleString()} — ${reason}${grouped}`;
-      return `<option value="${snapshot.id}">${escapeHtml(label)}</option>`;
-    }),
+    ...snapshotOptions,
   ].join("");
   const range = $("#sankey-timeline-range");
   range.max = String(Math.max(0, state.sankeyFrames.length - 1));
@@ -334,7 +354,9 @@ function updateSankeyPlaybackControls() {
   const lastIndex = state.sankeyFrames.length - 1;
   const currentFrame = state.sankeyFrames[state.sankeyFrameIndex];
   $("#sankey-timeline-range").value = String(state.sankeyFrameIndex);
-  $("#sankey-timeline-label").textContent = currentFrame ? frameLabel(currentFrame) : "Live view";
+  $("#sankey-timeline-label").textContent = currentFrame
+    ? frameLabel(currentFrame, state.sankeyFrameIndex)
+    : "Live view";
   $("#sankey-rewind").disabled = state.sankeyFrameIndex <= 0;
   $("#sankey-previous").disabled = state.sankeyFrameIndex <= 0;
   $("#sankey-next").disabled = state.sankeyFrameIndex >= lastIndex;
@@ -358,7 +380,11 @@ async function showSankeyFrame(index) {
   if (!frame) return;
 
   state.sankeyFrameIndex = boundedIndex;
-  $("#sankey-snapshot-select").value = frame.live ? "" : String(frame.id);
+  const snapshotSelect = $("#sankey-snapshot-select");
+  snapshotSelect.value = frame.live ? "" : String(frame.id);
+  snapshotSelect.title = frame.live
+    ? "Live view"
+    : `${new Date(frame.created_at).toLocaleString()} — ${frame.reason}`;
   $("#sankey-view-note").textContent = frame.live
     ? "Current pipeline"
     : frame.empty_state
