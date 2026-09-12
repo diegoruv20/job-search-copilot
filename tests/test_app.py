@@ -62,6 +62,10 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertIn(b"Timeline starts empty", script.data)
             self.assertIn(b"compactFrameSubject", script.data)
             self.assertIn(b"Daily snapshot", script.data)
+            self.assertIn(b"View &amp; apply", script.data)
+            self.assertIn(b'data-job-link', script.data)
+            self.assertIn(b'target="_blank"', script.data)
+            self.assertIn(b'rel="noopener noreferrer"', script.data)
             self.assertIn(b'if (name === "Offer") return "#f5b84b"', script.data)
             self.assertNotIn(b"renderPipeline", script.data)
         finally:
