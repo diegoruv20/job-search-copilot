@@ -285,6 +285,7 @@ function exitingNodeGeometry(node, nextGraph) {
 
 function frameLabel(frame) {
   if (frame.live) return "Live view";
+  if (frame.empty_state) return `Empty · ${new Date(frame.created_at).toLocaleDateString()}`;
   const prefix = frame.reason.startsWith("Estimated replay") ? "Estimated" : "Exact";
   const grouped = frame.grouped_count > 1 ? ` · ${frame.grouped_count} updates grouped` : "";
   return `${prefix} · ${new Date(frame.created_at).toLocaleDateString()}${grouped}`;
@@ -295,7 +296,11 @@ function rebuildSankeyFrames(mode = state.sankeyTimelineMode) {
   state.sankeyTimelineMode = mode;
   const snapshots = state.sankeyTimeline[mode] || [];
   state.sankeyFrames = [
-    ...snapshots.map(snapshot => ({ ...snapshot, live: false, data: null })),
+    ...snapshots.map(snapshot => ({
+      ...snapshot,
+      live: false,
+      data: snapshot.data || null,
+    })),
     { id: "", live: true, reason: "Live view", created_at: new Date().toISOString(), grouped_count: 1, data: state.sankeyLiveData },
   ];
   $("#sankey-timeline-mode").value = mode;
@@ -303,7 +308,8 @@ function rebuildSankeyFrames(mode = state.sankeyTimelineMode) {
     `<option value="">Live view</option>`,
     ...snapshots.slice().reverse().map(snapshot => {
       const grouped = snapshot.grouped_count > 1 ? ` · ${snapshot.grouped_count} updates grouped` : "";
-      const label = `${new Date(snapshot.created_at).toLocaleString()} — ${snapshot.reason}${grouped}`;
+      const reason = snapshot.empty_state ? "Empty starting state" : snapshot.reason;
+      const label = `${new Date(snapshot.created_at).toLocaleString()} — ${reason}${grouped}`;
       return `<option value="${snapshot.id}">${escapeHtml(label)}</option>`;
     }),
   ].join("");
@@ -355,6 +361,8 @@ async function showSankeyFrame(index) {
   $("#sankey-snapshot-select").value = frame.live ? "" : String(frame.id);
   $("#sankey-view-note").textContent = frame.live
     ? "Current pipeline"
+    : frame.empty_state
+      ? `Empty starting state from ${new Date(frame.created_at).toLocaleDateString()}`
     : `${frame.reason.startsWith("Estimated replay") ? "Estimated historical view" : "Exact snapshot"} from ${new Date(frame.created_at).toLocaleString()}${frame.grouped_count > 1 ? ` · ${frame.grouped_count} updates grouped into this highlight` : ""}`;
   updateSankeyPlaybackControls();
 
@@ -405,9 +413,13 @@ function renderSankey(data) {
   state.sankeyData = data;
   const container = $("#sankey-chart");
   if (!window.d3 || !d3.sankey || !data.links.length) {
+    const currentFrame = state.sankeyFrames[state.sankeyFrameIndex];
+    const message = currentFrame?.empty_state
+      ? "Timeline starts empty so the first update can build the application flow."
+      : "Application flow will appear after jobs are added.";
     container.innerHTML = "";
     state.sankeyGraph = null;
-    container.innerHTML = `<div class="empty-state">Application flow will appear after jobs are added.</div>`;
+    container.innerHTML = `<div class="empty-state">${message}</div>`;
     return;
   }
 
