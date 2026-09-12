@@ -153,8 +153,8 @@ a { color: inherit; }
 .recommendation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .recommendation-card {
   position: relative;
-  min-height: 194px;
-  padding: 18px;
+  min-height: 240px;
+  padding: 18px 18px 68px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.025);
@@ -166,6 +166,9 @@ a { color: inherit; }
 .recommendation-card .role { min-height: 36px; margin: 0 0 12px; color: #cbd5e1; font-size: 12px; line-height: 1.45; }
 .recommendation-card .fit { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
 .recommendation-card .rank { position: absolute; top: 15px; right: 15px; color: rgba(255,255,255,0.12); font-size: 38px; font-weight: 800; }
+.recommendation-actions { position: absolute; right: 18px; bottom: 18px; left: 18px; }
+.recommendation-link { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; text-decoration: none; font-size: 11px; }
+.recommendation-link-unavailable { color: var(--muted); font-size: 10px; }
 .freshness-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 .freshness-card { padding: 14px; border: 1px solid var(--border); border-radius: 13px; background: rgba(255,255,255,.025); }
 .freshness-card span, .freshness-card small { display: block; color: var(--muted); font-size: 10px; }

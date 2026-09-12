@@ -140,6 +140,11 @@ function renderRecommendations(jobs) {
       <h3>${escapeHtml(job.company)}</h3>
       <p class="role">${escapeHtml(job.role)}</p>
       <p class="fit">${escapeHtml(job.fit_summary || job.next_action || "Review this opportunity.")}</p>
+      <div class="recommendation-actions">
+        ${job.url
+          ? `<a class="button button-primary recommendation-link" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" data-job-link aria-label="View and apply to ${escapeHtml(job.role)} at ${escapeHtml(job.company)} in a new tab">View &amp; apply <span aria-hidden="true">↗</span></a>`
+          : `<span class="recommendation-link-unavailable">Posting link unavailable</span>`}
+      </div>
     </article>
   `).join("");
 }
@@ -898,6 +903,7 @@ $("#copy-onboarding-prompt").addEventListener("click", async () => {
 });
 
 document.addEventListener("click", event => {
+  if (event.target.closest("[data-job-link]")) return;
   const edit = event.target.closest("[data-edit-id]");
   const card = event.target.closest("[data-job-id]");
   const id = Number(edit?.dataset.editId || card?.dataset.jobId);
