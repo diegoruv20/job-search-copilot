@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from datetime import date, datetime, timedelta
@@ -577,6 +578,76 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         node_names = [node["name"] for node in historical["nodes"]]
         self.assertIn("Ready to apply", node_names)
         self.assertNotIn("Applied", node_names)
+
+    def test_legacy_sankey_snapshot_uses_current_lifecycle(self):
+        legacy_data = {
+            "nodes": [
+                {"name": "Tracked roles"},
+                {"name": "Applied"},
+                {"name": "Active / awaiting response"},
+                {"name": "Rejected"},
+                {"name": "Rejected at resume screen"},
+                {"name": "Rejected after recruiter screen"},
+                {"name": "Rejected after technical stage"},
+                {"name": "Rejected after onsite"},
+                {"name": "Offer"},
+                {"name": "Recruiter screen"},
+                {"name": "Onsite"},
+                {"name": "Withdrawn"},
+                {"name": "Not applied"},
+                {"name": "Ready to apply"},
+            ],
+            "links": [
+                {"source": 0, "target": 1, "value": 10},
+                {"source": 1, "target": 2, "value": 2},
+                {"source": 1, "target": 3, "value": 4},
+                {"source": 3, "target": 4, "value": 1},
+                {"source": 3, "target": 5, "value": 1},
+                {"source": 3, "target": 6, "value": 1},
+                {"source": 3, "target": 7, "value": 1},
+                {"source": 1, "target": 8, "value": 1},
+                {"source": 1, "target": 9, "value": 1},
+                {"source": 1, "target": 10, "value": 1},
+                {"source": 1, "target": 11, "value": 1},
+                {"source": 0, "target": 12, "value": 2},
+                {"source": 12, "target": 13, "value": 2},
+            ],
+        }
+        with self.app.app_context():
+            snapshot = SankeySnapshot(
+                data_json=json.dumps(legacy_data),
+                reason="Legacy snapshot",
+            )
+            db.session.add(snapshot)
+            db.session.commit()
+            snapshot_id = snapshot.id
+
+        historical = self.client.get(
+            f"/api/sankey/snapshots/{snapshot_id}"
+        ).get_json()
+        node_names = [node["name"] for node in historical["nodes"]]
+        links = {
+            (node_names[link["source"]], node_names[link["target"]]): link["value"]
+            for link in historical["links"]
+        }
+
+        self.assertNotIn("Active / awaiting response", node_names)
+        self.assertNotIn("Rejected", node_names)
+        self.assertEqual(links[("Applied", "Resume review")], 10)
+        self.assertEqual(links[("Resume review", "No response yet")], 2)
+        self.assertEqual(links[("Resume review", "Rejected at resume review")], 1)
+        self.assertEqual(
+            links[("Advanced to interviews", "Rejected during interviews")],
+            2,
+        )
+        self.assertEqual(
+            links[("Final interview", "Rejected after final interview")],
+            1,
+        )
+        self.assertEqual(links[("Final interview", "Offer")], 1)
+        self.assertEqual(links[("Final interview", "Final interview active")], 1)
+        self.assertEqual(links[("Resume review", "Withdrawn")], 1)
+        self.assertEqual(links[("Not applied", "Ready to apply")], 2)
 
     def test_non_funnel_edit_does_not_create_sankey_snapshot(self):
         created = self.client.post(

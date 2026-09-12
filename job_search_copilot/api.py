@@ -12,6 +12,7 @@ from .services import (
     history,
     list_jobs,
     metadata,
+    sankey_snapshot_payload,
     recommendations,
     sankey_snapshots,
     stats,
@@ -116,4 +117,4 @@ def sankey_snapshots_route():
 
 @api_bp.get("/sankey/snapshots/<int:snapshot_id>")
 def sankey_snapshot_route(snapshot_id):
-    return jsonify(get_sankey_snapshot(snapshot_id).to_dict(include_data=True))
+    return jsonify(sankey_snapshot_payload(get_sankey_snapshot(snapshot_id)))
