@@ -41,7 +41,7 @@ the details that matter.
 
 ### See the application funnel move
 
-[▶ **Watch the Sankey timeline build from an empty tracker to an offer (MP4, 18 seconds)**](docs/media/application-flow-demo.mp4)
+![Animated Sankey timeline building from an empty tracker to an offer](docs/media/application-flow-demo.gif)
 
 The fictional playback adds tracked opportunities, records Not-a-Fit decisions,
 submits applications, and follows candidates through resume review, interviews,
