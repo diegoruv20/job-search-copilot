@@ -45,7 +45,12 @@
     <div class="section-heading">
       <div><span class="eyebrow">Live application outcomes</span><h2>Application flow</h2></div>
       <div class="sankey-history-controls">
-        <label for="sankey-snapshot-select">View</label>
+        <label for="sankey-timeline-mode">Timeline</label>
+        <select id="sankey-timeline-mode" aria-label="Timeline detail">
+          <option value="highlights">Highlights</option>
+          <option value="all_activity">All activity</option>
+        </select>
+        <label for="sankey-snapshot-select">Frame</label>
         <select id="sankey-snapshot-select">
           <option value="">Live view</option>
         </select>

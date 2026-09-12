@@ -643,6 +643,78 @@ def sankey_snapshots(limit=250):
     )
 
 
+def _sankey_timeline_signature(data):
+    node_names = [node["name"] for node in data.get("nodes", [])]
+    topology = []
+    incoming = {name: 0 for name in node_names}
+    for link in data.get("links", []):
+        source = (
+            link["source"]
+            if isinstance(link["source"], str)
+            else node_names[link["source"]]
+        )
+        target = (
+            link["target"]
+            if isinstance(link["target"], str)
+            else node_names[link["target"]]
+        )
+        topology.append((source, target))
+        incoming[target] = incoming.get(target, 0) + link["value"]
+
+    low_signal_nodes = {
+        "Tracked roles",
+        "Not applied",
+        "Researching / preparing",
+    }
+    milestones = tuple(
+        sorted(
+            (name, value)
+            for name, value in incoming.items()
+            if name not in low_signal_nodes
+        )
+    )
+    return tuple(sorted(topology)), milestones
+
+
+def sankey_timeline(limit=250):
+    snapshots = list(reversed(sankey_snapshots(limit)))
+    if not snapshots:
+        return {"highlights": [], "all_activity": []}
+
+    entries = []
+    signatures = []
+    for snapshot in snapshots:
+        entry = snapshot.to_dict()
+        entry["grouped_count"] = 1
+        entries.append(entry)
+        signatures.append(_sankey_timeline_signature(snapshot.data))
+
+    selected = {0, len(snapshots) - 1}
+    for index, snapshot in enumerate(snapshots):
+        if snapshot.reason.startswith("Estimated replay"):
+            selected.add(index)
+        if index and signatures[index] != signatures[index - 1]:
+            selected.add(index)
+
+    last_index_by_day = {}
+    for index, snapshot in enumerate(snapshots):
+        last_index_by_day[snapshot.created_at.date()] = index
+    selected.update(last_index_by_day.values())
+
+    highlights = []
+    previous_index = -1
+    for index in sorted(selected):
+        entry = dict(entries[index])
+        entry["grouped_count"] = index - previous_index
+        highlights.append(entry)
+        previous_index = index
+
+    return {
+        "highlights": highlights,
+        "all_activity": entries,
+    }
+
+
 def get_sankey_snapshot(snapshot_id):
     snapshot = db.session.get(SankeySnapshot, snapshot_id)
     if snapshot is None:

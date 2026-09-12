@@ -4,7 +4,9 @@ const state = {
   meta: { statuses: [], tiers: [] },
   editingJob: null,
   sankeyData: null,
-  sankeySnapshots: [],
+  sankeyTimeline: { highlights: [], all_activity: [] },
+  sankeyTimelineMode: "highlights",
+  sankeyLiveData: null,
   sankeyFrames: [],
   sankeyFrameIndex: 0,
   sankeyGraph: null,
@@ -55,14 +57,14 @@ function freshnessChip(job) {
 }
 
 async function loadAll() {
-  const [meta, stats, recommendations, jobs, history, sankey, sankeySnapshots, workspace] = await Promise.all([
+  const [meta, stats, recommendations, jobs, history, sankey, sankeyTimeline, workspace] = await Promise.all([
     api("/api/meta"),
     api("/api/stats"),
     api("/api/recommendations"),
     loadJobs(false),
     api("/api/history"),
     api("/api/sankey"),
-    api("/api/sankey/snapshots"),
+    api("/api/sankey/timeline"),
     api("/api/workspace"),
   ]);
   state.meta = meta;
@@ -72,7 +74,7 @@ async function loadAll() {
   renderRecommendations(recommendations);
   renderWorkspace(workspace);
   renderHistory(history);
-  renderSankeyHistory(sankeySnapshots, sankey);
+  renderSankeyHistory(sankeyTimeline, sankey);
   renderSankey(sankey);
   return jobs;
 }
@@ -284,31 +286,41 @@ function exitingNodeGeometry(node, nextGraph) {
 function frameLabel(frame) {
   if (frame.live) return "Live view";
   const prefix = frame.reason.startsWith("Estimated replay") ? "Estimated" : "Exact";
-  return `${prefix} · ${new Date(frame.created_at).toLocaleDateString()}`;
+  const grouped = frame.grouped_count > 1 ? ` · ${frame.grouped_count} updates grouped` : "";
+  return `${prefix} · ${new Date(frame.created_at).toLocaleDateString()}${grouped}`;
 }
 
-function renderSankeyHistory(snapshots, liveData) {
-  state.sankeySnapshots = snapshots;
+function rebuildSankeyFrames(mode = state.sankeyTimelineMode) {
+  state.sankeyRequestSequence += 1;
+  state.sankeyTimelineMode = mode;
+  const snapshots = state.sankeyTimeline[mode] || [];
   state.sankeyFrames = [
-    ...snapshots.slice().reverse().map(snapshot => ({ ...snapshot, live: false, data: null })),
-    { id: "", live: true, reason: "Live view", created_at: new Date().toISOString(), data: liveData },
+    ...snapshots.map(snapshot => ({ ...snapshot, live: false, data: null })),
+    { id: "", live: true, reason: "Live view", created_at: new Date().toISOString(), grouped_count: 1, data: state.sankeyLiveData },
   ];
-  state.sankeyFrameIndex = state.sankeyFrames.length - 1;
+  $("#sankey-timeline-mode").value = mode;
   $("#sankey-snapshot-select").innerHTML = [
     `<option value="">Live view</option>`,
-    ...snapshots.map(snapshot => {
-      const label = `${new Date(snapshot.created_at).toLocaleString()} — ${snapshot.reason}`;
+    ...snapshots.slice().reverse().map(snapshot => {
+      const grouped = snapshot.grouped_count > 1 ? ` · ${snapshot.grouped_count} updates grouped` : "";
+      const label = `${new Date(snapshot.created_at).toLocaleString()} — ${snapshot.reason}${grouped}`;
       return `<option value="${snapshot.id}">${escapeHtml(label)}</option>`;
     }),
   ].join("");
-  $("#sankey-view-note").textContent = "Current pipeline";
   const range = $("#sankey-timeline-range");
   range.max = String(Math.max(0, state.sankeyFrames.length - 1));
-  range.value = String(state.sankeyFrameIndex);
   const firstHistorical = state.sankeyFrames.find(frame => !frame.live);
   $("#sankey-timeline-start").textContent = firstHistorical
     ? new Date(firstHistorical.created_at).toLocaleDateString()
     : "First snapshot";
+}
+
+function renderSankeyHistory(timeline, liveData) {
+  state.sankeyTimeline = timeline;
+  state.sankeyLiveData = liveData;
+  rebuildSankeyFrames();
+  state.sankeyFrameIndex = state.sankeyFrames.length - 1;
+  $("#sankey-view-note").textContent = "Current pipeline";
   updateSankeyPlaybackControls();
 }
 
@@ -343,7 +355,7 @@ async function showSankeyFrame(index) {
   $("#sankey-snapshot-select").value = frame.live ? "" : String(frame.id);
   $("#sankey-view-note").textContent = frame.live
     ? "Current pipeline"
-    : `${frame.reason.startsWith("Estimated replay") ? "Estimated historical view" : "Exact snapshot"} from ${new Date(frame.created_at).toLocaleString()}`;
+    : `${frame.reason.startsWith("Estimated replay") ? "Estimated historical view" : "Exact snapshot"} from ${new Date(frame.created_at).toLocaleString()}${frame.grouped_count > 1 ? ` · ${frame.grouped_count} updates grouped into this highlight` : ""}`;
   updateSankeyPlaybackControls();
 
   const requestSequence = ++state.sankeyRequestSequence;
@@ -359,10 +371,24 @@ function scheduleSankeyPlayback() {
     stopSankeyPlayback();
     return;
   }
+  const current = state.sankeyFrames[state.sankeyFrameIndex];
+  const next = state.sankeyFrames[state.sankeyFrameIndex + 1];
   state.sankeyPlaybackTimer = setTimeout(async () => {
     await showSankeyFrame(state.sankeyFrameIndex + 1);
     scheduleSankeyPlayback();
-  }, 1200);
+  }, sankeyPlaybackDelay(current, next));
+}
+
+function sankeyPlaybackDelay(current, next) {
+  if (!current || !next) return 1100;
+  const currentDate = new Date(current.created_at);
+  const nextDate = new Date(next.created_at);
+  currentDate.setHours(0, 0, 0, 0);
+  nextDate.setHours(0, 0, 0, 0);
+  const gapDays = Math.max(0, Math.round((nextDate - currentDate) / 86400000));
+  if (gapDays === 0) return 1100;
+  if (gapDays === 1) return 1500;
+  return 1900;
 }
 
 async function startSankeyPlayback() {
@@ -698,12 +724,12 @@ function formPayload() {
 }
 
 async function refreshDashboard() {
-  const [stats, recommendations, history, sankey, sankeySnapshots, workspace] = await Promise.all([
+  const [stats, recommendations, history, sankey, sankeyTimeline, workspace] = await Promise.all([
     api("/api/stats"),
     api("/api/recommendations"),
     api("/api/history"),
     api("/api/sankey"),
-    api("/api/sankey/snapshots"),
+    api("/api/sankey/timeline"),
     api("/api/workspace"),
   ]);
   await loadJobs();
@@ -712,7 +738,7 @@ async function refreshDashboard() {
   renderRecommendations(recommendations);
   renderWorkspace(workspace);
   renderHistory(history);
-  renderSankeyHistory(sankeySnapshots, sankey);
+  renderSankeyHistory(sankeyTimeline, sankey);
   renderSankey(sankey);
 }
 
@@ -730,6 +756,30 @@ $("#sankey-snapshot-select").addEventListener("change", async event => {
   const frameIndex = snapshotId
     ? state.sankeyFrames.findIndex(frame => String(frame.id) === snapshotId)
     : state.sankeyFrames.length - 1;
+  await showSankeyFrame(frameIndex);
+});
+
+$("#sankey-timeline-mode").addEventListener("change", async event => {
+  stopSankeyPlayback();
+  const currentFrame = state.sankeyFrames[state.sankeyFrameIndex];
+  rebuildSankeyFrames(event.target.value);
+  let frameIndex = state.sankeyFrames.length - 1;
+  if (currentFrame && !currentFrame.live) {
+    frameIndex = state.sankeyFrames.findIndex(
+      frame => String(frame.id) === String(currentFrame.id)
+    );
+    if (frameIndex < 0) {
+      const currentTime = new Date(currentFrame.created_at).getTime();
+      frameIndex = state.sankeyFrames
+        .map((frame, index) => ({
+          index,
+          distance: frame.live
+            ? Number.MAX_SAFE_INTEGER
+            : Math.abs(new Date(frame.created_at).getTime() - currentTime),
+        }))
+        .sort((left, right) => left.distance - right.distance)[0].index;
+    }
+  }
   await showSankeyFrame(frameIndex);
 });
 
