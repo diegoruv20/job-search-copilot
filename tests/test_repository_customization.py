@@ -85,6 +85,15 @@ class RepositoryCustomizationTestCase(unittest.TestCase):
             self.assertRegex(frontmatter, r"(?m)^name: [a-z0-9-]+$")
             self.assertRegex(frontmatter, r"(?m)^description: .+$")
 
+    def test_resume_workflow_requires_chronology_and_layout_review(self):
+        text = (
+            ROOT / ".github" / "skills" / "resume-making" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("chronology checklist", text)
+        self.assertIn("Never silently drop a role", text)
+        self.assertIn("An unexplained chronology omission is also a hard failure", text)
+        self.assertIn("substantial blank space", text)
+
     def test_mcp_launcher_uses_checkout_virtual_environment(self):
         from scripts.mcp_launcher import main, virtualenv_python
 

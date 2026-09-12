@@ -16,6 +16,11 @@ Before drafting:
 
 Existing resumes are layout and selection examples, not independent evidence.
 
+Before selecting content, build a chronology checklist from every employer, title,
+and date range in the experience inventory. Mark each entry as included or
+deliberately omitted, with a role-specific reason. Never silently drop a role,
+internship, degree, or other chronology entry.
+
 ## Evidence map
 
 Map the role's highest-priority outcomes to direct evidence, transferable evidence,
@@ -33,6 +38,9 @@ outcome details.
 - Show technical leadership accurately without implying formal management.
 - Use exact posting terminology only when the evidence supports it.
 - Remove weak content before shrinking readable text.
+- A one-page target is not permission to omit relevant experience while usable
+  page space remains. Preserve distinct roles and internships when they add
+  evidence or chronology; compress weaker bullets first.
 
 ## Review
 
@@ -48,6 +56,17 @@ Grade every candidate final out of 100:
 
 Any unsupported material claim is a hard failure. Target at least 90, revise, and
 re-grade.
+
+An unexplained chronology omission is also a hard failure and cannot receive a
+passing final score. Before grading:
+
+1. Extract the finished DOCX and PDF text and compare every included or omitted
+   chronology entry with the checklist.
+2. Render every PDF page and assess both overcrowding and under-utilization.
+3. If substantial blank space coexists with omitted relevant evidence, restore
+   the evidence rather than accepting the layout.
+4. Compare against a strong prior resume for structural regressions, while using
+   the inventory—not the prior resume—as the factual source.
 
 ## Artifacts
 
