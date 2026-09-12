@@ -201,6 +201,7 @@ a { color: inherit; }
 .sankey-history-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .sankey-history-controls label { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .sankey-history-controls select { max-width: 360px; min-width: 220px; }
+.sankey-history-controls #sankey-timeline-mode { min-width: 125px; width: auto; }
 .sankey-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: -6px 0 12px; color: var(--muted); font-size: 10px; }
 .sankey-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--purple); }

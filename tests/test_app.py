@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from datetime import date, datetime, timedelta
@@ -33,6 +34,9 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Application dashboard", response.data)
         self.assertIn(b'id="sankey-timeline-range"', response.data)
+        self.assertIn(b'id="sankey-timeline-mode"', response.data)
+        self.assertIn(b'<option value="highlights">Highlights</option>', response.data)
+        self.assertIn(b'<option value="all_activity">All activity</option>', response.data)
         self.assertIn(b'id="sankey-play"', response.data)
         self.assertIn(b'id="sankey-rewind"', response.data)
         self.assertIn(b'class="legend-dot offer"', response.data)
@@ -52,6 +56,8 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertEqual(script.status_code, 200)
             self.assertIn(b"sankeyGraph", script.data)
             self.assertIn(b"sankey-flow-motion", script.data)
+            self.assertIn(b"updates grouped", script.data)
+            self.assertIn(b"sankeyPlaybackDelay", script.data)
             self.assertIn(b'if (name === "Offer") return "#f5b84b"', script.data)
             self.assertNotIn(b"renderPipeline", script.data)
         finally:
@@ -64,6 +70,95 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertIn(b"*::-webkit-scrollbar-track", stylesheet.data)
         finally:
             stylesheet.close()
+
+    def test_sankey_timeline_keeps_sparse_daily_and_meaningful_changes(self):
+        graphs = [
+            {
+                "nodes": [
+                    {"name": "Tracked roles"},
+                    {"name": "Researching / preparing"},
+                    {"name": "Applied"},
+                    {"name": "Resume review"},
+                    {"name": "Interviewing"},
+                ],
+                "links": [
+                    {"source": "Tracked roles", "target": "Researching / preparing", "value": 3},
+                    {"source": "Applied", "target": "Resume review", "value": 1},
+                ],
+            },
+            {
+                "nodes": [
+                    {"name": "Tracked roles"},
+                    {"name": "Researching / preparing"},
+                    {"name": "Applied"},
+                    {"name": "Resume review"},
+                    {"name": "Interviewing"},
+                ],
+                "links": [
+                    {"source": "Tracked roles", "target": "Researching / preparing", "value": 4},
+                    {"source": "Applied", "target": "Resume review", "value": 1},
+                ],
+            },
+            {
+                "nodes": [
+                    {"name": "Tracked roles"},
+                    {"name": "Researching / preparing"},
+                    {"name": "Applied"},
+                    {"name": "Resume review"},
+                    {"name": "Interviewing"},
+                ],
+                "links": [
+                    {"source": "Tracked roles", "target": "Researching / preparing", "value": 4},
+                    {"source": "Applied", "target": "Resume review", "value": 1},
+                    {"source": "Resume review", "target": "Interviewing", "value": 1},
+                ],
+            },
+            {
+                "nodes": [
+                    {"name": "Tracked roles"},
+                    {"name": "Researching / preparing"},
+                    {"name": "Applied"},
+                    {"name": "Resume review"},
+                    {"name": "Interviewing"},
+                ],
+                "links": [
+                    {"source": "Tracked roles", "target": "Researching / preparing", "value": 5},
+                    {"source": "Applied", "target": "Resume review", "value": 1},
+                    {"source": "Resume review", "target": "Interviewing", "value": 1},
+                ],
+            },
+        ]
+        with self.app.app_context():
+            SankeySnapshot.query.delete()
+            for index, graph in enumerate(graphs):
+                snapshot = SankeySnapshot(
+                    reason=f"timeline-{index}",
+                    data_json=json.dumps(graph),
+                )
+                db.session.add(snapshot)
+                db.session.flush()
+                if index < 2:
+                    snapshot.created_at = datetime(2026, 9, 10 + index, 12, 0, 0)
+                else:
+                    snapshot.created_at = datetime(2026, 9, 11, 13 + index, 0, 0)
+            db.session.commit()
+
+        response = self.client.get("/api/sankey/timeline")
+        try:
+            self.assertEqual(response.status_code, 200)
+            payload = response.get_json()
+            self.assertEqual(len(payload["all_activity"]), 4)
+            self.assertEqual(len(payload["highlights"]), 3)
+            self.assertEqual(
+                [frame["reason"] for frame in payload["highlights"]],
+                ["timeline-0", "timeline-2", "timeline-3"],
+            )
+            self.assertEqual(
+                [frame["grouped_count"] for frame in payload["highlights"]],
+                [1, 2, 1],
+            )
+        finally:
+            response.close()
 
     def test_workspace_readiness_is_available_to_dashboard(self):
         workspace = {
@@ -577,6 +672,81 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         node_names = [node["name"] for node in historical["nodes"]]
         self.assertIn("Ready to apply", node_names)
         self.assertNotIn("Applied", node_names)
+
+    def test_sankey_timeline_groups_dense_low_signal_activity(self):
+        def graph(researching, ready=0):
+            nodes = [
+                {"name": "Tracked roles"},
+                {"name": "Not applied"},
+                {"name": "Researching / preparing"},
+            ]
+            links = [
+                {"source": 0, "target": 1, "value": researching + ready},
+                {"source": 1, "target": 2, "value": researching},
+            ]
+            if ready:
+                nodes.append({"name": "Ready to apply"})
+                links.append({"source": 1, "target": 3, "value": ready})
+            return {"nodes": nodes, "links": links}
+
+        with self.app.app_context():
+            SankeySnapshot.query.delete()
+            snapshots = [
+                SankeySnapshot(
+                    data_json=json.dumps(graph(1)),
+                    reason="Added Alpha — Engineer",
+                    created_at=datetime(2026, 9, 11, 9, 0),
+                ),
+                SankeySnapshot(
+                    data_json=json.dumps(graph(2)),
+                    reason="Added Bravo — Engineer",
+                    created_at=datetime(2026, 9, 11, 9, 5),
+                ),
+                SankeySnapshot(
+                    data_json=json.dumps(graph(3)),
+                    reason="Added Charlie — Engineer",
+                    created_at=datetime(2026, 9, 11, 9, 10),
+                ),
+                SankeySnapshot(
+                    data_json=json.dumps(graph(2, ready=1)),
+                    reason="Charlie: Researching → Ready to Apply",
+                    created_at=datetime(2026, 9, 11, 9, 15),
+                ),
+                SankeySnapshot(
+                    data_json=json.dumps(graph(3, ready=1)),
+                    reason="Added Delta — Engineer",
+                    created_at=datetime(2026, 9, 11, 9, 20),
+                ),
+                SankeySnapshot(
+                    data_json=json.dumps(graph(4, ready=1)),
+                    reason="Estimated replay — Sep 12, 2026 (0 applications)",
+                    created_at=datetime(2026, 9, 12, 23, 59),
+                ),
+            ]
+            db.session.add_all(snapshots)
+            db.session.commit()
+
+        timeline = self.client.get("/api/sankey/timeline").get_json()
+        self.assertEqual(len(timeline["all_activity"]), 6)
+        self.assertEqual(
+            [frame["reason"] for frame in timeline["highlights"]],
+            [
+                "Added Alpha — Engineer",
+                "Charlie: Researching → Ready to Apply",
+                "Added Delta — Engineer",
+                "Estimated replay — Sep 12, 2026 (0 applications)",
+            ],
+        )
+        self.assertEqual(
+            [frame["grouped_count"] for frame in timeline["highlights"]],
+            [1, 3, 1, 1],
+        )
+        self.assertTrue(
+            all(
+                frame["grouped_count"] == 1
+                for frame in timeline["all_activity"]
+            )
+        )
 
     def test_non_funnel_edit_does_not_create_sankey_snapshot(self):
         created = self.client.post(

@@ -13,6 +13,7 @@ from .services import (
     list_jobs,
     metadata,
     recommendations,
+    sankey_timeline,
     sankey_snapshots,
     stats,
     update_job,
@@ -117,3 +118,8 @@ def sankey_snapshots_route():
 @api_bp.get("/sankey/snapshots/<int:snapshot_id>")
 def sankey_snapshot_route(snapshot_id):
     return jsonify(get_sankey_snapshot(snapshot_id).to_dict(include_data=True))
+
+
+@api_bp.get("/sankey/timeline")
+def sankey_timeline_route():
+    return jsonify(sankey_timeline(request.args.get("limit", 250, type=int)))
