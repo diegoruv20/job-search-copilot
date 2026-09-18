@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from unittest import mock
 
 from app import create_app
@@ -12,10 +13,12 @@ class ApplicationTrackerTestCase(unittest.TestCase):
     def setUp(self):
         self.database = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         self.database.close()
+        self.applications = tempfile.TemporaryDirectory()
         self.app = create_app(
             {
                 "TESTING": True,
                 "SQLALCHEMY_DATABASE_URI": f"sqlite:///{self.database.name}",
+                "APPLICATIONS_ROOT": self.applications.name,
             }
         )
         self.client = self.app.test_client()
@@ -28,6 +31,7 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             db.drop_all()
             db.engine.dispose()
         os.unlink(self.database.name)
+        self.applications.cleanup()
 
     def test_dashboard_renders(self):
         response = self.client.get("/")
@@ -35,20 +39,25 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertIn(b"Application dashboard", response.data)
         self.assertIn(b'id="sankey-timeline-range"', response.data)
         self.assertIn(b'id="sankey-timeline-mode"', response.data)
+        self.assertIn(b'<option value="daily">Daily</option>', response.data)
         self.assertIn(b'<option value="highlights">Highlights</option>', response.data)
         self.assertIn(b'<option value="all_activity">All activity</option>', response.data)
+        self.assertIn(b'id="sankey-playback-speed"', response.data)
         self.assertIn(b'id="sankey-play"', response.data)
         self.assertIn(b'id="sankey-rewind"', response.data)
         self.assertIn(b'class="legend-dot offer"', response.data)
         self.assertIn(b'id="workspace-panel"', response.data)
+        self.assertIn(b'id="dashboard-sync-status"', response.data)
+        self.assertIn(b'data-workflow="new"', response.data)
+        self.assertIn(b'data-workflow="pursuits"', response.data)
+        self.assertIn(b'data-workflow="applications"', response.data)
+        self.assertIn(b'data-workflow="all"', response.data)
+        self.assertIn(b'id="clear-filters"', response.data)
+        self.assertIn(b'id="jobs-pagination"', response.data)
         self.assertNotIn(b'id="pipeline"', response.data)
         self.assertLess(
-            response.data.index(b'id="recommendations"'),
             response.data.index(b'id="sankey-chart"'),
-        )
-        self.assertLess(
-            response.data.index(b'id="sankey-chart"'),
-            response.data.index(b'id="freshness-conversion"'),
+            response.data.index(b'id="jobs-view-title"'),
         )
 
         script = self.client.get("/static/js/dashboard.js")
@@ -63,6 +72,12 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertIn(b"compactFrameSubject", script.data)
             self.assertIn(b"Daily snapshot", script.data)
             self.assertIn(b"View &amp; apply", script.data)
+            self.assertIn(b"No current pursuits yet.", script.data)
+            self.assertIn(b'params.set("workflow", state.workflow)', script.data)
+            self.assertIn(b"const JOBS_PAGE_SIZE = 10", script.data)
+            self.assertIn(b'api("/api/revision")', script.data)
+            self.assertIn(b"function sankeyLayoutMetrics", script.data)
+            self.assertIn(b"/view", script.data)
             self.assertIn(b'data-job-link', script.data)
             self.assertIn(b'target="_blank"', script.data)
             self.assertIn(b'rel="noopener noreferrer"', script.data)
@@ -78,6 +93,73 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertIn(b"*::-webkit-scrollbar-track", stylesheet.data)
         finally:
             stylesheet.close()
+
+    def test_prepared_resume_is_exposed_only_for_safe_unambiguous_match(self):
+        company_directory = Path(self.applications.name) / "Resume Co"
+        target_directory = company_directory / "Target Platform"
+        other_directory = company_directory / "Other Role"
+        target_directory.mkdir(parents=True)
+        other_directory.mkdir()
+        resume_bytes = b"%PDF-1.4 prepared resume"
+        (target_directory / "Candidate_Target_Resume.pdf").write_bytes(resume_bytes)
+        (other_directory / "Candidate_Other_Resume.pdf").write_bytes(
+            b"%PDF-1.4 other resume"
+        )
+
+        created = self.client.post(
+            "/api/jobs",
+            json={
+                "company": "Resume Co",
+                "role": "Senior Engineer, Target Platform",
+            },
+        ).get_json()
+        self.assertEqual(
+            created["resume_url"],
+            f"/api/jobs/{created['id']}/resume",
+        )
+        response = self.client.get(created["resume_url"])
+        try:
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.mimetype, "application/pdf")
+            self.assertEqual(response.data, resume_bytes)
+        finally:
+            response.close()
+
+        ambiguous = self.client.post(
+            "/api/jobs",
+            json={"company": "Resume Co", "role": "Senior Engineer"},
+        ).get_json()
+        self.assertIsNone(ambiguous["resume_url"])
+
+        escaped = self.client.post(
+            "/api/jobs",
+            json={"company": "..", "role": "Engineer"},
+        ).get_json()
+        self.assertIsNone(escaped["resume_url"])
+        self.assertEqual(
+            self.client.get(f"/api/jobs/{escaped['id']}/resume").status_code,
+            404,
+        )
+
+    def test_revision_changes_after_job_mutations(self):
+        initial = self.client.get("/api/revision").get_json()["revision"]
+        created = self.client.post(
+            "/api/jobs",
+            json={"company": "Revision Example", "role": "Platform Engineer"},
+        ).get_json()
+        after_create = self.client.get("/api/revision").get_json()["revision"]
+        self.assertNotEqual(initial, after_create)
+
+        self.client.put(
+            f"/api/jobs/{created['id']}",
+            json={"notes": "Updated through another local client"},
+        )
+        after_update = self.client.get("/api/revision").get_json()["revision"]
+        self.assertNotEqual(after_create, after_update)
+
+        self.client.delete(f"/api/jobs/{created['id']}")
+        after_delete = self.client.get("/api/revision").get_json()["revision"]
+        self.assertNotEqual(after_update, after_delete)
 
     def test_sankey_timeline_keeps_sparse_daily_and_meaningful_changes(self):
         graphs = [
@@ -157,6 +239,7 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             payload = response.get_json()
             self.assertEqual(len(payload["all_activity"]), 5)
             self.assertEqual(len(payload["highlights"]), 4)
+            self.assertEqual(len(payload["daily"]), 3)
             self.assertEqual(
                 [frame["reason"] for frame in payload["highlights"]],
                 [
@@ -178,6 +261,170 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             )
         finally:
             response.close()
+
+    def test_workflow_views_filter_and_order_jobs(self):
+        today = date.today()
+        with self.app.app_context():
+            db.session.add_all(
+                [
+                    Job(
+                        company="Fresh New Co",
+                        role="Engineer",
+                        status="Researching",
+                        recommendation_tier="Monitor",
+                        first_published_date=today,
+                    ),
+                    Job(
+                        company="Old New Co",
+                        role="Engineer",
+                        status="Ready to Apply",
+                        recommendation_tier="Apply Next",
+                        first_published_date=today - timedelta(days=10),
+                    ),
+                    Job(
+                        company="Not Fit Co",
+                        role="Engineer",
+                        status="Not a Fit",
+                        decision="Mismatch",
+                        not_fit_category="Other documented reason",
+                        recommendation_tier="Monitor",
+                    ),
+                    Job(
+                        company="Upcoming Application Co",
+                        role="Engineer",
+                        status="Applied",
+                        applied_date=today,
+                        next_action="Send follow-up",
+                        next_action_date=today + timedelta(days=3),
+                        recommendation_tier="Active Application",
+                    ),
+                    Job(
+                        company="Legacy Interview Co",
+                        role="Engineer",
+                        status="Technical Interview",
+                        recommendation_tier="Active Application",
+                    ),
+                    Job(
+                        company="Overdue Application Co",
+                        role="Engineer",
+                        status="Rejected",
+                        applied_date=today - timedelta(days=2),
+                        next_action="Record lessons learned",
+                        next_action_date=today - timedelta(days=1),
+                        recommendation_tier="Monitor",
+                        archived=True,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        new_jobs = self.client.get(
+            "/api/jobs?workflow=new&archive=active&sort=freshest"
+        ).get_json()
+        self.assertEqual(
+            [job["company"] for job in new_jobs],
+            ["Fresh New Co", "Old New Co"],
+        )
+        applications = self.client.get(
+            "/api/jobs?workflow=applications&archive=all"
+        ).get_json()
+        self.assertEqual(
+            [job["company"] for job in applications],
+            [
+                "Overdue Application Co",
+                "Upcoming Application Co",
+                "Legacy Interview Co",
+            ],
+        )
+        narrowed = self.client.get(
+            "/api/jobs?workflow=applications&archive=all&status=Applied"
+        ).get_json()
+        self.assertEqual(
+            [job["company"] for job in narrowed],
+            ["Upcoming Application Co"],
+        )
+
+    def test_sankey_distinguishes_interview_stages(self):
+        with self.app.app_context():
+            db.session.add_all(
+                [
+                    Job(
+                        company="Initial Screen Co",
+                        role="Engineer",
+                        status="Recruiter Screen",
+                        applied_date=date.today(),
+                        recommendation_tier="Active Application",
+                    ),
+                    Job(
+                        company="Technical Co",
+                        role="Engineer",
+                        status="Technical Interview",
+                        applied_date=date.today(),
+                        recommendation_tier="Active Application",
+                    ),
+                    Job(
+                        company="Final Loop Co",
+                        role="Engineer",
+                        status="Rejected",
+                        stage="Final Interview Rejection",
+                        applied_date=date.today(),
+                        recommendation_tier="Monitor",
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        data = self.client.get("/api/sankey").get_json()
+        names = [node["name"] for node in data["nodes"]]
+        links = {
+            (names[link["source"]], names[link["target"]])
+            for link in data["links"]
+        }
+        self.assertIn(("Resume review", "Initial screen"), links)
+        self.assertIn(("Initial screen", "Active initial screen"), links)
+        self.assertIn(("Initial screen", "Technical interview"), links)
+        self.assertIn(
+            ("Technical interview", "Active technical interview"),
+            links,
+        )
+        self.assertIn(("Final / onsite", "Rejected after final interview"), links)
+
+    def test_sankey_display_view_preserves_raw_legacy_snapshot(self):
+        legacy_graph = {
+            "nodes": [
+                {"name": "Tracked roles"},
+                {"name": "Applied"},
+                {"name": "Resume review"},
+                {"name": "Advanced to interviews"},
+                {"name": "Active interviewing"},
+            ],
+            "links": [
+                {"source": 0, "target": 1, "value": 1},
+                {"source": 1, "target": 2, "value": 1},
+                {"source": 2, "target": 3, "value": 1},
+                {"source": 3, "target": 4, "value": 1},
+            ],
+        }
+        with self.app.app_context():
+            SankeySnapshot.query.delete()
+            snapshot = SankeySnapshot(
+                data_json=json.dumps(legacy_graph),
+                reason="Legacy frame",
+            )
+            db.session.add(snapshot)
+            db.session.commit()
+            snapshot_id = snapshot.id
+
+        raw = self.client.get(f"/api/sankey/snapshots/{snapshot_id}").get_json()
+        self.assertIn("Advanced to interviews", {node["name"] for node in raw["nodes"]})
+        display = self.client.get(
+            f"/api/sankey/snapshots/{snapshot_id}/view"
+        ).get_json()
+        self.assertIn("Initial screen", {node["name"] for node in display["nodes"]})
+        self.assertNotIn(
+            "Advanced to interviews",
+            {node["name"] for node in display["nodes"]},
+        )
 
     def test_workspace_readiness_is_available_to_dashboard(self):
         workspace = {
@@ -250,7 +497,7 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         interview_rejection = next(
             link
             for link in sankey["links"]
-            if link["source"] == node_indexes["Advanced to interviews"]
+            if link["source"] == node_indexes["Technical interview"]
             and link["target"] == node_indexes["Rejected during interviews"]
         )
         self.assertEqual(interview_rejection["value"], 1)
@@ -633,7 +880,7 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertIn("Resume review", nodes)
         self.assertIn("Rejected at resume review", nodes)
         self.assertIn("Rejected after final interview", nodes)
-        self.assertIn("Active interviewing", nodes)
+        self.assertIn("Active initial screen", nodes)
         self.assertIn("Ready to apply", nodes)
 
     def test_sankey_keeps_withdrawn_beside_resume_review_outcomes(self):

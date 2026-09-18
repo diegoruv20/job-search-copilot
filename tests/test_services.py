@@ -3,10 +3,11 @@ import tempfile
 import unittest
 
 from app import create_app
-from job_search_copilot.models import db
+from job_search_copilot.models import StatusHistory, db
 from job_search_copilot.services import (
     TrackerValidationError,
     create_job,
+    current_pursuits,
     list_jobs,
     stats,
     update_job,
@@ -94,3 +95,74 @@ class TrackerServiceTestCase(unittest.TestCase):
         self.assertEqual(
             response.get_json()["error"], "URL must start with http:// or https://"
         )
+
+    def test_current_pursuits_are_derived_from_shared_domain_evidence(self):
+        create_job(
+            {
+                "company": "Interview Co",
+                "role": "Platform Engineer",
+                "status": "Technical Interview",
+                "stage": "Technical interview scheduled",
+            }
+        )
+        scheduled_call = create_job(
+            {
+                "company": "Scheduled Co",
+                "role": "Data Engineer",
+                "status": "Applied",
+                "stage": "Recruiter introductory call scheduled for Friday",
+            }
+        )
+        recruiter_response = create_job(
+            {
+                "company": "Response Co",
+                "role": "Backend Engineer",
+                "status": "Applied",
+            }
+        )
+        db.session.add(
+            StatusHistory(
+                job_id=recruiter_response.id,
+                old_status="Applied",
+                new_status="Applied",
+                note="The recruiter replied and invited a call.",
+            )
+        )
+        create_job(
+            {
+                "company": "Awaiting Co",
+                "role": "Engineer",
+                "status": "Applied",
+                "next_action": "Follow up if there is no response",
+            }
+        )
+        create_job(
+            {
+                "company": "Rejected Co",
+                "role": "Engineer",
+                "status": "Rejected",
+                "stage": "Recruiter call confirmed",
+            }
+        )
+        db.session.commit()
+
+        pursuits = current_pursuits()
+        self.assertEqual(
+            {job.company for job in pursuits},
+            {"Interview Co", "Scheduled Co", "Response Co"},
+        )
+        self.assertIn(scheduled_call, pursuits)
+        self.assertEqual(
+            {job.company for job in list_jobs(workflow="pursuits")},
+            {"Interview Co", "Scheduled Co", "Response Co"},
+        )
+        response = self.client.get("/api/current-pursuits")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            {job["company"] for job in response.get_json()},
+            {"Interview Co", "Scheduled Co", "Response Co"},
+        )
+
+    def test_current_pursuits_blank_state(self):
+        self.assertEqual(current_pursuits(), [])
+        self.assertEqual(self.client.get("/api/current-pursuits").get_json(), [])

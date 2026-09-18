@@ -4,8 +4,9 @@ const state = {
   meta: { statuses: [], tiers: [] },
   editingJob: null,
   sankeyData: null,
-  sankeyTimeline: { highlights: [], all_activity: [] },
-  sankeyTimelineMode: "highlights",
+  sankeyTimeline: { daily: [], highlights: [], all_activity: [] },
+  sankeyTimelineMode: "daily",
+  sankeyPlaybackSpeed: 1,
   sankeyLiveData: null,
   sankeyFrames: [],
   sankeyFrameIndex: 0,
@@ -13,8 +14,43 @@ const state = {
   sankeyPlaybackTimer: null,
   sankeyPlaying: false,
   sankeyRequestSequence: 0,
+  dashboardRevision: null,
+  dashboardPendingRevision: null,
+  dashboardRefreshPromise: null,
+  dashboardRevisionCheckPromise: null,
+  workflow: "new",
+  jobPage: 1,
+  visibleJobFilters: new Set(),
 };
 
+const DASHBOARD_REFRESH_INTERVAL_MS = 5000;
+const JOBS_PAGE_SIZE = 10;
+const workflowViews = {
+  new: {
+    title: "New opportunities",
+    note: "Unapplied active roles, freshest first",
+    archive: "active",
+    sort: "freshest",
+  },
+  applications: {
+    title: "My applications",
+    note: "Submitted roles and outcomes, ordered by the next action",
+    archive: "all",
+    sort: "default",
+  },
+  pursuits: {
+    title: "Current pursuits",
+    note: "Confirmed recruiter conversations and active interview stages",
+    archive: "active",
+    sort: "default",
+  },
+  all: {
+    title: "All jobs",
+    note: "Every tracked role with full filtering and sorting",
+    archive: "all",
+    sort: "default",
+  },
+};
 const $ = (selector) => document.querySelector(selector);
 const slug = (value) => (value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 const displayDate = (value) => value
@@ -56,8 +92,20 @@ function freshnessChip(job) {
   return `<span class="freshness-chip freshness-${slug(job.freshness_bucket)}">${job.posting_age_days}d old</span>`;
 }
 
+function sortJobs(jobs) {
+  const mode = $("#jobs-sort")?.value || "default";
+  if (mode === "default") return jobs;
+  const direction = mode === "freshest" ? -1 : 1;
+  return [...jobs].sort((left, right) => {
+    if (!left.first_published_date && !right.first_published_date) return 0;
+    if (!left.first_published_date) return 1;
+    if (!right.first_published_date) return -1;
+    return left.first_published_date.localeCompare(right.first_published_date) * direction;
+  });
+}
+
 async function loadAll() {
-  const [meta, stats, recommendations, jobs, history, sankey, sankeyTimeline, workspace] = await Promise.all([
+  const [meta, stats, recommendations, jobs, history, sankey, sankeyTimeline, workspace, revision] = await Promise.all([
     api("/api/meta"),
     api("/api/stats"),
     api("/api/recommendations"),
@@ -66,8 +114,10 @@ async function loadAll() {
     api("/api/sankey"),
     api("/api/sankey/timeline"),
     api("/api/workspace"),
+    api("/api/revision"),
   ]);
   state.meta = meta;
+  state.dashboardRevision = revision.revision;
   renderSelects();
   renderStats(stats);
   renderFreshness(stats.freshness_conversion);
@@ -85,11 +135,15 @@ async function loadJobs(render = true) {
   const status = $("#status-filter")?.value;
   const tier = $("#tier-filter")?.value;
   const archive = $("#archive-filter")?.value || "active";
+  const sort = $("#jobs-sort")?.value || "default";
   if (q) params.set("q", q);
   if (status) params.set("status", status);
   if (tier) params.set("tier", tier);
   params.set("archive", archive);
-  state.jobs = await api(`/api/jobs?${params}`);
+  params.set("workflow", state.workflow);
+  params.set("sort", sort);
+  state.jobs = sortJobs(await api(`/api/jobs?${params}`));
+  state.jobIndex.clear();
   state.jobs.forEach(job => state.jobIndex.set(job.id, job));
   if (render) renderJobs();
   return state.jobs;
@@ -144,6 +198,9 @@ function renderRecommendations(jobs) {
         ${job.url
           ? `<a class="button button-primary recommendation-link" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" data-job-link aria-label="View and apply to ${escapeHtml(job.role)} at ${escapeHtml(job.company)} in a new tab">View &amp; apply <span aria-hidden="true">↗</span></a>`
           : `<span class="recommendation-link-unavailable">Posting link unavailable</span>`}
+        ${job.resume_url
+          ? `<a class="recommendation-link resume-link" href="${escapeHtml(job.resume_url)}" target="_blank" rel="noopener noreferrer" data-job-link aria-label="Open prepared resume for ${escapeHtml(job.role)} at ${escapeHtml(job.company)} in a new tab">Open resume <span aria-hidden="true">↗</span></a>`
+          : ""}
       </div>
     </article>
   `).join("");
@@ -171,9 +228,19 @@ function renderWorkspace(workspace) {
 function sankeyColor(name) {
   if (name === "Not a fit" || name === "Withdrawn" || name.startsWith("Rejected ")) return "#f87171";
   if (name === "Offer") return "#f5b84b";
-  if (["Advanced to interviews", "Active interviewing", "Final interview", "Final interview active"].includes(name)) return "#35d39a";
+  if ([
+    "Initial screen",
+    "Active initial screen",
+    "Technical interview",
+    "Active technical interview",
+    "Final / onsite",
+    "Final interview active",
+    "Advanced to interviews",
+    "Active interviewing",
+    "Final interview",
+  ].includes(name)) return "#35d39a";
   if (["Applied", "Resume review", "No response yet"].includes(name)) return "#4ea5ff";
-  if (["Not applied", "Ready to apply", "Referral prep", "Researching / preparing", "On hold"].includes(name)) return "#8b7cf6";
+  if (["Not applied", "Ready to apply", "Referral prep", "Preparing", "Researching / preparing", "On hold"].includes(name)) return "#8b7cf6";
   return "#64748b";
 }
 
@@ -181,19 +248,25 @@ const sankeyNodeOrder = new Map([
   ["Tracked roles", 0],
   ["Applied", 10],
   ["Resume review", 20],
-  ["Advanced to interviews", 30],
+  ["Initial screen", 30],
+  ["Advanced to interviews", 31],
   ["No response yet", 40],
   ["Rejected at resume review", 50],
   ["Withdrawn", 55],
-  ["Final interview", 60],
-  ["Active interviewing", 70],
+  ["Technical interview", 60],
+  ["Active initial screen", 70],
+  ["Active technical interview", 71],
+  ["Active interviewing", 72],
   ["Rejected during interviews", 80],
+  ["Final / onsite", 85],
+  ["Final interview", 86],
   ["Offer", 90],
   ["Final interview active", 100],
   ["Rejected after final interview", 110],
   ["Not applied", 130],
   ["Ready to apply", 140],
   ["Referral prep", 150],
+  ["Preparing", 160],
   ["Researching / preparing", 160],
   ["On hold", 170],
   ["Not a fit", 180],
@@ -216,10 +289,11 @@ function sankeyOrder(name) {
 function sankeyDepth(name) {
   if (name === "Tracked roles") return 0;
   if (["Applied", "Not applied"].includes(name)) return 1;
-  if (["Resume review", "Ready to apply", "Referral prep", "Researching / preparing", "On hold", "Not a fit"].includes(name)) return 2;
-  if (["No response yet", "Rejected at resume review", "Advanced to interviews", "Withdrawn"].includes(name)) return 3;
-  if (["Active interviewing", "Rejected during interviews", "Final interview"].includes(name)) return 4;
-  if (["Final interview active", "Rejected after final interview", "Offer"].includes(name)) return 5;
+  if (["Resume review", "Ready to apply", "Referral prep", "Preparing", "Researching / preparing", "On hold", "Not a fit"].includes(name)) return 2;
+  if (["No response yet", "Rejected at resume review", "Initial screen", "Advanced to interviews", "Withdrawn"].includes(name)) return 3;
+  if (["Active initial screen", "Technical interview", "Active interviewing", "Rejected during interviews"].includes(name)) return 4;
+  if (["Active technical interview", "Final / onsite", "Final interview"].includes(name)) return 5;
+  if (["Final interview active", "Rejected after final interview", "Offer"].includes(name)) return 6;
   if (
     [
       "Required experience / seniority",
@@ -245,6 +319,75 @@ function sankeyLinkId(link) {
 
 function sankeyNodeCenter(node) {
   return (node.y0 + node.y1) / 2;
+}
+
+function measureSankeyText(text, font) {
+  const canvas = measureSankeyText.canvas || document.createElement("canvas");
+  measureSankeyText.canvas = canvas;
+  const context = canvas.getContext("2d");
+  context.font = font;
+  return context.measureText(text).width;
+}
+
+function sankeyLayoutMetrics(data, isNarrow) {
+  const nodeWidth = 18;
+  const labelOffset = 8;
+  const stageBuffer = isNarrow ? 20 : 18;
+  const edgePadding = isNarrow ? 24 : 18;
+  const labelFont = "600 12px Inter, sans-serif";
+  const countFont = "500 10px Inter, sans-serif";
+  const continuingNodeNames = new Set(data.links.map(link => {
+    const source = link.source;
+    if (typeof source === "object") return source.name;
+    if (Number.isInteger(source)) return data.nodes[source]?.name;
+    return source;
+  }));
+  const labelWidths = new Map();
+  const continuingLabelWidths = new Map();
+  let maxDepth = 0;
+
+  data.nodes.forEach(node => {
+    const depth = sankeyDepth(node.name);
+    const countLabel = `${node.value ?? 999} roles`;
+    const labelWidth = Math.ceil(Math.max(
+      measureSankeyText(node.name, labelFont),
+      measureSankeyText(countLabel, countFont),
+    )) + 8;
+    labelWidths.set(node.name, labelWidth);
+    if (continuingNodeNames.has(node.name) || depth < 3) {
+      continuingLabelWidths.set(
+        depth,
+        Math.max(continuingLabelWidths.get(depth) || 0, labelWidth),
+      );
+    }
+    maxDepth = Math.max(maxDepth, depth);
+  });
+
+  const stageOffsets = new Map([[0, 0]]);
+  for (let depth = 1; depth <= maxDepth; depth += 1) {
+    const previousOffset = stageOffsets.get(depth - 1);
+    const previousLabelWidth = continuingLabelWidths.get(depth - 1) || 0;
+    stageOffsets.set(
+      depth,
+      previousOffset + nodeWidth + labelOffset + previousLabelWidth + stageBuffer,
+    );
+  }
+
+  const contentWidth = Math.max(...data.nodes.map(node => (
+    stageOffsets.get(sankeyDepth(node.name))
+    + nodeWidth
+    + labelOffset
+    + labelWidths.get(node.name)
+  )));
+  return {
+    contentWidth,
+    edgePadding,
+    labelOffset,
+    maxDepth,
+    minimumWidth: Math.ceil(contentWidth + edgePadding * 2),
+    nodeWidth,
+    stageOffsets,
+  };
 }
 
 function collapsedLink(link, atTarget = false) {
@@ -398,7 +541,7 @@ async function showSankeyFrame(index) {
   updateSankeyPlaybackControls();
 
   const requestSequence = ++state.sankeyRequestSequence;
-  if (!frame.data) frame.data = await api(`/api/sankey/snapshots/${frame.id}`);
+  if (!frame.data) frame.data = await api(`/api/sankey/snapshots/${frame.id}/view`);
   if (requestSequence !== state.sankeyRequestSequence) return;
   renderSankey(frame.data);
 }
@@ -419,15 +562,16 @@ function scheduleSankeyPlayback() {
 }
 
 function sankeyPlaybackDelay(current, next) {
-  if (!current || !next) return 1100;
+  const speed = Math.max(1, state.sankeyPlaybackSpeed);
+  if (!current || !next) return 1100 / speed;
   const currentDate = new Date(current.created_at);
   const nextDate = new Date(next.created_at);
   currentDate.setHours(0, 0, 0, 0);
   nextDate.setHours(0, 0, 0, 0);
   const gapDays = Math.max(0, Math.round((nextDate - currentDate) / 86400000));
-  if (gapDays === 0) return 1100;
-  if (gapDays === 1) return 1500;
-  return 1900;
+  if (gapDays === 0) return 1100 / speed;
+  if (gapDays === 1) return 1500 / speed;
+  return 1900 / speed;
 }
 
 async function startSankeyPlayback() {
@@ -443,31 +587,62 @@ async function startSankeyPlayback() {
 function renderSankey(data) {
   state.sankeyData = data;
   const container = $("#sankey-chart");
+  const scrollHint = $("#sankey-scroll-hint");
   if (!window.d3 || !d3.sankey || !data.links.length) {
     const currentFrame = state.sankeyFrames[state.sankeyFrameIndex];
     const message = currentFrame?.empty_state
       ? "Timeline starts empty so the first update can build the application flow."
       : "Application flow will appear after jobs are added.";
     container.innerHTML = "";
+    container.classList.remove("is-scrollable");
+    scrollHint.hidden = true;
     state.sankeyGraph = null;
     container.innerHTML = `<div class="empty-state">${message}</div>`;
     return;
   }
 
-  const width = Math.max(container.clientWidth, 760);
-  const height = window.innerWidth <= 760 ? 330 : 390;
-  const margin = { top: 14, right: 150, bottom: 14, left: 125 };
+  const availableWidth = container.clientWidth;
+  const isMobile = window.innerWidth <= 760;
+  const isNarrow = availableWidth < 980;
+  const layout = sankeyLayoutMetrics(data, isNarrow);
+  const minimumWidth = layout.minimumWidth;
+  const width = Math.max(availableWidth, minimumWidth);
+  const height = isNarrow ? 600 : 460;
+  const margin = isMobile || isNarrow
+    ? { top: 20, bottom: 20 }
+    : { top: 14, bottom: 14 };
+  const fillsAvailableWidth = layout.maxDepth > 0;
+  const targetLayoutWidth = fillsAvailableWidth ? width : minimumWidth;
+  const extraStageGap = layout.maxDepth > 0
+    ? (targetLayoutWidth - minimumWidth) / layout.maxDepth
+    : 0;
+  const horizontalOffset = (
+    layout.edgePadding
+    + Math.max(0, (width - targetLayoutWidth) / 2)
+  );
+  const isScrollable = width > availableWidth + 1;
+  container.classList.toggle("is-scrollable", isScrollable);
+  scrollHint.hidden = !isScrollable;
   const previousGraph = state.sankeyGraph;
   const graph = d3.sankey()
-    .nodeWidth(16)
-    .nodePadding(17)
+    .nodeWidth(layout.nodeWidth)
+    .nodePadding(isNarrow ? 22 : 17)
     .nodeAlign((node, columns) => Math.min(sankeyDepth(node.name), columns - 1))
     .nodeSort((left, right) => sankeyOrder(left.name) - sankeyOrder(right.name))
     .linkSort((left, right) => sankeyOrder(left.target.name) - sankeyOrder(right.target.name))
-    .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])({
+    .extent([[horizontalOffset, margin.top], [width - horizontalOffset, height - margin.bottom]])({
       nodes: data.nodes.map(node => ({ ...node })),
       links: data.links.map(link => ({ ...link })),
     });
+  graph.nodes.forEach(node => {
+    const depth = sankeyDepth(node.name);
+    node.x0 = (
+      horizontalOffset
+      + layout.stageOffsets.get(depth)
+      + depth * extraStageGap
+    );
+    node.x1 = node.x0 + layout.nodeWidth;
+  });
 
   d3.select(container).select(".empty-state").remove();
   let svg = d3.select(container).select("svg");
@@ -479,7 +654,9 @@ function renderSankey(data) {
   }
   svg
     .attr("viewBox", `0 0 ${width} ${height}`)
-    .attr("preserveAspectRatio", "xMidYMid meet");
+    .attr("preserveAspectRatio", "xMidYMid meet")
+    .style("min-width", `${width}px`)
+    .style("height", `${height}px`);
 
   let tooltip = document.querySelector(".sankey-tooltip");
   if (!tooltip) {
@@ -619,43 +796,74 @@ function renderSankey(data) {
   mergedNodes.select("text:not(.node-count)")
     .text(node => node.name)
     .transition(transition)
-    .attr("x", node => node.x0 < width / 2 ? node.x1 + 8 : node.x0 - 8)
+    .attr("x", node => node.x1 + layout.labelOffset)
     .attr("y", node => (node.y0 + node.y1) / 2 - 2)
-    .attr("text-anchor", node => node.x0 < width / 2 ? "start" : "end")
+    .attr("text-anchor", "start")
     .style("opacity", 1);
 
   mergedNodes.select(".node-count")
     .text(node => `${node.value} ${node.value === 1 ? "role" : "roles"}`)
     .transition(transition)
-    .attr("x", node => node.x0 < width / 2 ? node.x1 + 8 : node.x0 - 8)
+    .attr("x", node => node.x1 + layout.labelOffset)
     .attr("y", node => (node.y0 + node.y1) / 2 + 12)
-    .attr("text-anchor", node => node.x0 < width / 2 ? "start" : "end")
+    .attr("text-anchor", "start")
     .style("opacity", 1);
 
   state.sankeyGraph = graph;
 }
 
 function renderJobs() {
-  $("#result-count").textContent = `${state.jobs.length} ${state.jobs.length === 1 ? "job" : "jobs"}`;
-  $("#empty-state").hidden = state.jobs.length !== 0;
+  const jobCount = state.jobs.length;
+  const pageCount = Math.max(1, Math.ceil(jobCount / JOBS_PAGE_SIZE));
+  state.jobPage = Math.min(Math.max(1, state.jobPage), pageCount);
+  const pageStart = (state.jobPage - 1) * JOBS_PAGE_SIZE;
+  const pageJobs = state.jobs.slice(pageStart, pageStart + JOBS_PAGE_SIZE);
+  const pageEnd = Math.min(jobCount, pageStart + pageJobs.length);
+  $("#result-count").textContent = jobCount
+    ? `${pageStart + 1}-${pageEnd} of ${jobCount} jobs`
+    : "0 jobs";
+  $("#empty-state").hidden = jobCount !== 0;
   const hasFilters = Boolean(
     $("#search-input")?.value.trim()
     || $("#status-filter")?.value
     || $("#tier-filter")?.value
-    || ($("#archive-filter")?.value || "active") !== "active"
   );
-  $("#empty-state-title").textContent = hasFilters ? "No jobs match these filters." : "Start your private job-search workspace.";
+  const emptyCopy = {
+    new: [
+      "No new opportunities yet.",
+      "Add a verified opportunity, or switch to All jobs to review roles already classified.",
+    ],
+    applications: [
+      "No applications yet.",
+      "When a role is recorded as applied, it will appear here with its next action and outcome.",
+    ],
+    pursuits: [
+      "No current pursuits yet.",
+      "Confirmed recruiter conversations and active interview stages will appear here automatically.",
+    ],
+    all: [
+      "Start your private job-search workspace.",
+      "Add your first verified role here, or ask Copilot to load fictional demo data through the local tracker MCP server.",
+    ],
+  }[state.workflow];
+  $("#empty-state-title").textContent = hasFilters ? "No jobs match these filters." : emptyCopy[0];
   $("#empty-state-copy").textContent = hasFilters
-    ? "Adjust the filters or add a new opportunity."
-    : "Add your first verified role here, or ask Copilot to load fictional demo data through the local tracker MCP server.";
-  $("#jobs-table").innerHTML = state.jobs.map(job => `
+    ? "Clear advanced filters or choose another workflow view."
+    : emptyCopy[1];
+  $("#empty-add-job").textContent = ["applications", "pursuits"].includes(state.workflow)
+    ? "Add a job"
+    : "Add an opportunity";
+  $("#jobs-table").innerHTML = pageJobs.map(job => `
     <tr data-job-id="${job.id}">
       <td>
         <span class="company-name">${escapeHtml(job.company)}</span>
         <span class="role-name">${escapeHtml(job.role)}</span>
         <span class="job-meta">${escapeHtml(job.location || "")}</span>
         <span class="job-meta">${freshnessChip(job)}${job.first_published_date ? ` First published ${displayDate(job.first_published_date)}` : ""}</span>
-        ${job.url ? `<a class="job-link" href="${escapeHtml(job.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Open job ↗</a>` : ""}
+        <span class="job-resource-links">
+          ${job.url ? `<a class="job-link" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" data-job-link>Open job ↗</a>` : ""}
+          ${job.resume_url ? `<a class="job-link resume-link" href="${escapeHtml(job.resume_url)}" target="_blank" rel="noopener noreferrer" data-job-link>Open resume ↗</a>` : ""}
+        </span>
       </td>
       <td>${statusChip(job.status)}${job.applied_date ? `<span class="job-meta">Applied ${displayDate(job.applied_date)}</span>` : ""}</td>
       <td>${tierChip(job.recommendation_tier)}</td>
@@ -667,14 +875,109 @@ function renderJobs() {
     </tr>
   `).join("");
 
-  $("#mobile-job-list").innerHTML = state.jobs.map(job => `
+  $("#mobile-job-list").innerHTML = pageJobs.map(job => `
     <article class="mobile-job-card" data-job-id="${job.id}">
       <div class="card-row"><div><span class="company-name">${escapeHtml(job.company)}</span><span class="role-name">${escapeHtml(job.role)}</span></div>${statusChip(job.status)}</div>
       <div class="job-meta">${escapeHtml(job.location || "")}</div>
       <div style="margin-top:10px">${tierChip(job.recommendation_tier)} ${freshnessChip(job)}</div>
       <span class="next-action ${job.follow_up_due ? "due" : ""}">${escapeHtml(job.next_action || "No action set")}</span>
+      <span class="job-meta">${job.next_action_date ? displayDate(job.next_action_date) : ""}</span>
+      <span class="job-resource-links">
+        ${job.url ? `<a class="job-link" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" data-job-link>Open job ↗</a>` : ""}
+        ${job.resume_url ? `<a class="job-link resume-link" href="${escapeHtml(job.resume_url)}" target="_blank" rel="noopener noreferrer" data-job-link>Open resume ↗</a>` : ""}
+      </span>
     </article>
   `).join("");
+  renderJobPagination(jobCount, pageCount);
+  renderActiveFilters();
+}
+
+function renderJobPagination(jobCount, pageCount) {
+  const pagination = $("#jobs-pagination");
+  pagination.hidden = jobCount <= JOBS_PAGE_SIZE;
+  $("#jobs-page-status").textContent = `Page ${state.jobPage} of ${pageCount}`;
+  $("#jobs-page-previous").disabled = state.jobPage <= 1;
+  $("#jobs-page-next").disabled = state.jobPage >= pageCount;
+}
+
+function currentFilterState() {
+  const view = workflowViews[state.workflow] || workflowViews.new;
+  return [
+    { key: "search", label: "Search", value: $("#search-input")?.value.trim() || "", defaultValue: "" },
+    { key: "status", label: "Status", value: $("#status-filter")?.value || "", defaultValue: "" },
+    { key: "tier", label: "Recommendation", value: $("#tier-filter")?.value || "", defaultValue: "" },
+    { key: "archive", label: "Visibility", value: $("#archive-filter")?.value || "active", defaultValue: view.archive },
+    { key: "sort", label: "Sort", value: $("#jobs-sort")?.value || "default", defaultValue: view.sort },
+  ].filter(filter => filter.value !== filter.defaultValue);
+}
+
+function renderActiveFilters() {
+  const filters = currentFilterState();
+  const container = $("#active-filters");
+  filters.forEach(filter => state.visibleJobFilters.add(filter.key));
+  $("#clear-filters").disabled = filters.length === 0 && state.visibleJobFilters.size === 0;
+  document.querySelectorAll("[data-filter-control]").forEach(control => {
+    control.hidden = !state.visibleJobFilters.has(control.dataset.filterControl);
+  });
+  document.querySelectorAll("[data-add-filter]").forEach(button => {
+    button.hidden = state.visibleJobFilters.has(button.dataset.addFilter);
+  });
+  $("#add-filter-menu").hidden = state.visibleJobFilters.size === 4;
+  container.textContent = filters.length
+    ? `${filters.length} customized filter${filters.length === 1 ? "" : "s"} applied.`
+    : `Using ${workflowViews[state.workflow].title} defaults.`;
+}
+
+function activateWorkflow(workflow, applyDefaults = true) {
+  const view = workflowViews[workflow] || workflowViews.new;
+  state.workflow = workflowViews[workflow] ? workflow : "new";
+  document.querySelectorAll("[data-workflow]").forEach(button => {
+    const active = button.dataset.workflow === state.workflow;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  $("#jobs-view-title").textContent = view.title;
+  $("#jobs-view-note").textContent = view.note;
+  if (applyDefaults) {
+    $("#archive-filter").value = view.archive;
+    $("#jobs-sort").value = view.sort;
+  }
+}
+
+function clearAdvancedFilters() {
+  $("#search-input").value = "";
+  $("#status-filter").value = "";
+  $("#tier-filter").value = "";
+  state.visibleJobFilters.clear();
+  state.jobPage = 1;
+  activateWorkflow(state.workflow);
+  return loadJobs();
+}
+
+function clearFilter(key) {
+  const view = workflowViews[state.workflow] || workflowViews.new;
+  if (key === "search") $("#search-input").value = "";
+  if (key === "status") $("#status-filter").value = "";
+  if (key === "tier") $("#tier-filter").value = "";
+  if (key === "archive") $("#archive-filter").value = view.archive;
+  if (key === "sort") $("#jobs-sort").value = view.sort;
+  state.visibleJobFilters.delete(key);
+  state.jobPage = 1;
+  return loadJobs();
+}
+
+function addFilter(key) {
+  const control = document.querySelector(`[data-filter-control="${key}"]`);
+  if (!control) return;
+  state.visibleJobFilters.add(key);
+  $("#add-filter-menu").open = false;
+  renderActiveFilters();
+  control.querySelector("select")?.focus();
+}
+
+function loadJobsFromFirstPage() {
+  state.jobPage = 1;
+  return loadJobs();
 }
 
 function renderHistory(items) {
@@ -733,7 +1036,10 @@ function openDialog(job = null) {
   $("#job-dialog").showModal();
 }
 
-function closeDialog() { $("#job-dialog").close(); }
+function closeDialog() {
+  $("#job-dialog").close();
+  void checkDashboardRevision();
+}
 
 function formPayload() {
   return {
@@ -766,23 +1072,84 @@ function formPayload() {
   };
 }
 
+function setDashboardSyncStatus(message, status = "live") {
+  const indicator = $("#dashboard-sync-status");
+  if (!indicator) return;
+  indicator.dataset.state = status;
+  indicator.setAttribute("aria-label", message);
+  const text = indicator.querySelector(".sync-status-text");
+  if (text) text.textContent = message;
+}
+
+function canAutoRefreshDashboard() {
+  const currentFrame = state.sankeyFrames[state.sankeyFrameIndex];
+  return !$("#job-dialog")?.open
+    && !state.sankeyPlaying
+    && (!currentFrame || currentFrame.live);
+}
+
 async function refreshDashboard() {
-  const [stats, recommendations, history, sankey, sankeyTimeline, workspace] = await Promise.all([
-    api("/api/stats"),
-    api("/api/recommendations"),
-    api("/api/history"),
-    api("/api/sankey"),
-    api("/api/sankey/timeline"),
-    api("/api/workspace"),
-  ]);
-  await loadJobs();
-  renderStats(stats);
-  renderFreshness(stats.freshness_conversion);
-  renderRecommendations(recommendations);
-  renderWorkspace(workspace);
-  renderHistory(history);
-  renderSankeyHistory(sankeyTimeline, sankey);
-  renderSankey(sankey);
+  if (state.dashboardRefreshPromise) return state.dashboardRefreshPromise;
+  state.dashboardRefreshPromise = (async () => {
+    const [stats, recommendations, history, sankey, sankeyTimeline, workspace, revision] = await Promise.all([
+      api("/api/stats"),
+      api("/api/recommendations"),
+      api("/api/history"),
+      api("/api/sankey"),
+      api("/api/sankey/timeline"),
+      api("/api/workspace"),
+      api("/api/revision"),
+    ]);
+    await loadJobs();
+    renderStats(stats);
+    renderFreshness(stats.freshness_conversion);
+    renderRecommendations(recommendations);
+    renderWorkspace(workspace);
+    renderHistory(history);
+    renderSankeyHistory(sankeyTimeline, sankey);
+    renderSankey(sankey);
+    state.dashboardRevision = revision.revision;
+    state.dashboardPendingRevision = null;
+    setDashboardSyncStatus("Updated just now");
+  })();
+  try {
+    return await state.dashboardRefreshPromise;
+  } finally {
+    state.dashboardRefreshPromise = null;
+  }
+}
+
+async function checkDashboardRevision() {
+  if (state.dashboardRevisionCheckPromise) return;
+  state.dashboardRevisionCheckPromise = (async () => {
+    try {
+      const revision = await api("/api/revision");
+      if (state.dashboardRevision === null) {
+        state.dashboardRevision = revision.revision;
+        setDashboardSyncStatus("Live updates on");
+        return;
+      }
+      if (revision.revision === state.dashboardRevision) {
+        if (!state.dashboardPendingRevision) setDashboardSyncStatus("Live updates on");
+        return;
+      }
+      state.dashboardPendingRevision = revision.revision;
+      if (!canAutoRefreshDashboard()) {
+        setDashboardSyncStatus("Update available", "pending");
+        return;
+      }
+      setDashboardSyncStatus("Updating dashboard", "updating");
+      await refreshDashboard();
+    } catch (error) {
+      console.warn("Dashboard live update check failed", error);
+      setDashboardSyncStatus("Live updates reconnecting", "error");
+    }
+  })();
+  try {
+    await state.dashboardRevisionCheckPromise;
+  } finally {
+    state.dashboardRevisionCheckPromise = null;
+  }
 }
 
 let resizeTimer;
@@ -844,6 +1211,11 @@ $("#sankey-play").addEventListener("click", async () => {
   await startSankeyPlayback();
 });
 
+$("#sankey-playback-speed").addEventListener("change", event => {
+  state.sankeyPlaybackSpeed = Number(event.target.value) || 1;
+  if (state.sankeyPlaying) scheduleSankeyPlayback();
+});
+
 $("#sankey-next").addEventListener("click", async () => {
   stopSankeyPlayback();
   await showSankeyFrame(state.sankeyFrameIndex + 1);
@@ -852,6 +1224,7 @@ $("#sankey-next").addEventListener("click", async () => {
 $("#sankey-live").addEventListener("click", async () => {
   stopSankeyPlayback();
   await showSankeyFrame(state.sankeyFrames.length - 1);
+  void checkDashboardRevision();
 });
 
 $("#sankey-timeline-range").addEventListener("input", async event => {
@@ -887,10 +1260,34 @@ $("#add-job-button").addEventListener("click", () => openDialog());
 $("#empty-add-job").addEventListener("click", () => openDialog());
 $("#close-dialog").addEventListener("click", closeDialog);
 $("#cancel-dialog").addEventListener("click", closeDialog);
-$("#search-input").addEventListener("input", () => loadJobs());
-$("#status-filter").addEventListener("change", () => loadJobs());
-$("#tier-filter").addEventListener("change", () => loadJobs());
-$("#archive-filter").addEventListener("change", () => loadJobs());
+$("#search-input").addEventListener("input", () => loadJobsFromFirstPage());
+$("#status-filter").addEventListener("change", () => loadJobsFromFirstPage());
+$("#tier-filter").addEventListener("change", () => loadJobsFromFirstPage());
+$("#archive-filter").addEventListener("change", () => loadJobsFromFirstPage());
+$("#jobs-sort").addEventListener("change", () => loadJobsFromFirstPage());
+$("#clear-filters").addEventListener("click", () => clearAdvancedFilters());
+$("#jobs-page-previous").addEventListener("click", () => {
+  state.jobPage = Math.max(1, state.jobPage - 1);
+  renderJobs();
+});
+$("#jobs-page-next").addEventListener("click", () => {
+  state.jobPage += 1;
+  renderJobs();
+});
+$("#add-filter-menu").addEventListener("click", event => {
+  const filter = event.target.closest("[data-add-filter]");
+  if (filter) addFilter(filter.dataset.addFilter);
+});
+$("#filter-controls").addEventListener("click", event => {
+  const filter = event.target.closest("[data-remove-filter]");
+  if (filter) clearFilter(filter.dataset.removeFilter);
+});
+document.querySelectorAll("[data-workflow]").forEach(button => {
+  button.addEventListener("click", () => {
+    activateWorkflow(button.dataset.workflow);
+    loadJobsFromFirstPage();
+  });
+});
 $("#status").addEventListener("change", updateNotFitRequirements);
 $("#copy-onboarding-prompt").addEventListener("click", async () => {
   const confirmation = $("#copy-confirmation");
@@ -910,11 +1307,21 @@ document.addEventListener("click", event => {
   if (id) openDialog(state.jobIndex.get(id) || null);
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void checkDashboardRevision();
+});
+window.addEventListener("focus", () => void checkDashboardRevision());
+window.setInterval(() => void checkDashboardRevision(), DASHBOARD_REFRESH_INTERVAL_MS);
+
 $("#today-label").textContent = new Date().toLocaleDateString(undefined, {
   weekday: "long", month: "long", day: "numeric", year: "numeric"
 });
 
+activateWorkflow("new");
 loadAll().then(renderJobs).catch(error => {
   console.error(error);
-  $("#jobs-table").innerHTML = `<tr><td colspan="5">Unable to load dashboard: ${error.message}</td></tr>`;
+  const message = `Unable to load dashboard: ${escapeHtml(error.message)}`;
+  $("#recommendations").innerHTML = `<div class="empty-state error-state" role="alert">${message}</div>`;
+  $("#jobs-table").innerHTML = `<tr><td colspan="5" class="error-state" role="alert">${message}</td></tr>`;
+  $("#mobile-job-list").innerHTML = `<div class="empty-state error-state" role="alert">${message}</div>`;
 });

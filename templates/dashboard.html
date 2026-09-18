@@ -33,20 +33,13 @@
     <div class="readiness-list" id="readiness-list"></div>
   </section>
 
-  <section class="panel recommendations-panel">
-    <div class="section-heading">
-      <div><span class="eyebrow">Prioritized for you</span><h2>Recommended next moves</h2></div>
-      <span class="section-note">Updated from the latest job-search analysis</span>
-    </div>
-    <div class="recommendation-grid" id="recommendations"></div>
-  </section>
-
   <section class="panel sankey-panel">
     <div class="section-heading">
       <div><span class="eyebrow">Live application outcomes</span><h2>Application flow</h2></div>
       <div class="sankey-history-controls">
         <label for="sankey-timeline-mode">Timeline</label>
         <select id="sankey-timeline-mode" aria-label="Timeline detail">
+          <option value="daily">Daily</option>
           <option value="highlights">Highlights</option>
           <option value="all_activity">All activity</option>
         </select>
@@ -64,7 +57,17 @@
       <span><i class="legend-dot offer"></i>Offer</span>
       <span><i class="legend-dot negative"></i>Closed</span>
     </div>
-    <div id="sankey-chart" class="sankey-chart" role="img" aria-label="Application outcome Sankey diagram"></div>
+    <div
+      id="sankey-chart"
+      class="sankey-chart"
+      role="img"
+      aria-label="Application outcome Sankey diagram"
+      aria-describedby="sankey-scroll-hint"
+      tabindex="0"
+    ></div>
+    <p id="sankey-scroll-hint" class="sankey-scroll-hint" hidden>
+      Scroll horizontally to view every application stage.
+    </p>
     <div class="sankey-timeline" aria-label="Application history playback">
       <div class="sankey-playback-controls">
         <button type="button" class="timeline-button" id="sankey-rewind" aria-label="Rewind to first snapshot" title="Rewind">|&lt;</button>
@@ -72,6 +75,13 @@
         <button type="button" class="timeline-button timeline-play" id="sankey-play" aria-label="Play history" title="Play">Play</button>
         <button type="button" class="timeline-button" id="sankey-next" aria-label="Next snapshot" title="Next">&gt;</button>
         <button type="button" class="timeline-button" id="sankey-live" aria-label="Jump to live view" title="Live view">Live</button>
+        <label class="sankey-speed-control" for="sankey-playback-speed">
+          Speed
+          <select id="sankey-playback-speed" aria-label="Playback speed">
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+          </select>
+        </label>
       </div>
       <div class="sankey-scrubber">
         <input id="sankey-timeline-range" type="range" min="0" max="0" value="0" step="1" aria-label="Application history timeline">
@@ -84,49 +94,98 @@
     </div>
   </section>
 
-  <section class="panel">
-    <div class="section-heading">
-      <div><span class="eyebrow">Measured from original publication</span><h2>Freshness and recruiter-screen conversion</h2></div>
-      <span class="section-note">Reposts are tracked separately and do not reset posting age</span>
-    </div>
-    <div class="freshness-grid" id="freshness-conversion"></div>
-  </section>
-
   <div class="content-grid">
     <section class="panel jobs-panel">
       <div class="section-heading">
-        <div><span class="eyebrow">Source of truth</span><h2>Jobs and applications</h2></div>
+        <div>
+          <span class="eyebrow">Your working queue</span>
+          <h2 id="jobs-view-title">New opportunities</h2>
+          <span class="section-note" id="jobs-view-note">Unapplied active roles, freshest first</span>
+        </div>
         <span class="result-count" id="result-count"></span>
+      </div>
+      <div class="workflow-tabs" role="group" aria-label="Job workflow views">
+        <button type="button" class="workflow-tab is-active" aria-pressed="true" data-workflow="new">
+          <strong>New opportunities</strong>
+          <span>Unapplied and active</span>
+        </button>
+        <button type="button" class="workflow-tab" aria-pressed="false" data-workflow="pursuits">
+          <strong>Current pursuits</strong>
+          <span>Recruiter conversations and interviews</span>
+        </button>
+        <button type="button" class="workflow-tab" aria-pressed="false" data-workflow="applications">
+          <strong>My applications</strong>
+          <span>Submitted roles and outcomes</span>
+        </button>
+        <button type="button" class="workflow-tab" aria-pressed="false" data-workflow="all">
+          <strong>All jobs</strong>
+          <span>Full tracker control</span>
+        </button>
+      </div>
+      <div class="filter-heading">
+        <p class="workflow-help">Views set the job scope and default order. Search and filters narrow the active view.</p>
+        <button type="button" class="clear-filters" id="clear-filters" disabled>Reset filters</button>
       </div>
       <div class="filters">
         <label class="search-field">
           <span>Search</span>
           <input id="search-input" type="search" placeholder="Company, role, or skill">
         </label>
-        <label>
-          <span>Status</span>
-          <select id="status-filter"><option value="">All statuses</option></select>
-        </label>
-        <label>
-          <span>Recommendation</span>
-          <select id="tier-filter"><option value="">All recommendations</option></select>
-        </label>
-        <label>
-          <span>Visibility</span>
-          <select id="archive-filter">
-            <option value="active">Active roles</option>
-            <option value="archived">Archived roles</option>
-            <option value="all">All roles</option>
-          </select>
-        </label>
+        <details class="add-filter-menu" id="add-filter-menu">
+          <summary>Add filter</summary>
+          <div class="add-filter-options" role="group" aria-label="Available job filters">
+            <button type="button" data-add-filter="status">Status</button>
+            <button type="button" data-add-filter="tier">Recommendation</button>
+            <button type="button" data-add-filter="archive">Visibility</button>
+            <button type="button" data-add-filter="sort">Sort</button>
+          </div>
+        </details>
       </div>
+      <div class="filter-controls" id="filter-controls">
+        <div class="filter-control" data-filter-control="status" hidden>
+          <label><span>Status</span><select id="status-filter"><option value="">All statuses</option></select></label>
+          <button type="button" class="remove-filter" data-remove-filter="status" aria-label="Remove Status filter">×</button>
+        </div>
+        <div class="filter-control" data-filter-control="tier" hidden>
+          <label><span>Recommendation</span><select id="tier-filter"><option value="">All recommendations</option></select></label>
+          <button type="button" class="remove-filter" data-remove-filter="tier" aria-label="Remove Recommendation filter">×</button>
+        </div>
+        <div class="filter-control" data-filter-control="archive" hidden>
+          <label>
+            <span>Visibility</span>
+            <select id="archive-filter">
+              <option value="active">Active roles</option>
+              <option value="archived">Archived roles</option>
+              <option value="all">All roles</option>
+            </select>
+          </label>
+          <button type="button" class="remove-filter" data-remove-filter="archive" aria-label="Remove Visibility filter">×</button>
+        </div>
+        <div class="filter-control" data-filter-control="sort" hidden>
+          <label>
+            <span>Sort</span>
+            <select id="jobs-sort">
+              <option value="default">Workflow order</option>
+              <option value="freshest" selected>Freshest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </label>
+          <button type="button" class="remove-filter" data-remove-filter="sort" aria-label="Remove Sort filter">×</button>
+        </div>
+      </div>
+      <div class="filter-announcement" id="active-filters" aria-live="polite"></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Opportunity</th><th>Status</th><th>Recommendation</th><th>Next action</th><th></th></tr></thead>
-          <tbody id="jobs-table"></tbody>
+          <tbody id="jobs-table"><tr><td colspan="5" class="loading-state">Loading jobs…</td></tr></tbody>
         </table>
       </div>
-      <div class="mobile-job-list" id="mobile-job-list"></div>
+      <div class="mobile-job-list" id="mobile-job-list"><div class="loading-state">Loading jobs…</div></div>
+      <nav class="jobs-pagination" id="jobs-pagination" aria-label="Working queue pages" hidden>
+        <button type="button" class="pagination-button" id="jobs-page-previous">Previous</button>
+        <span id="jobs-page-status" aria-live="polite">Page 1 of 1</span>
+        <button type="button" class="pagination-button" id="jobs-page-next">Next</button>
+      </nav>
       <div class="empty-state onboarding-state" id="empty-state" hidden>
         <strong id="empty-state-title">No jobs match these filters.</strong>
         <p id="empty-state-copy">Adjust the filters or add a new opportunity.</p>
@@ -139,6 +198,25 @@
       <div id="activity-list" class="activity-list"></div>
     </aside>
   </div>
+
+  <section class="panel recommendations-panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">From your tracker</span><h2>Recommended next moves</h2></div>
+      <span class="section-note">Exact next actions recorded by dashboard and terminal workflows</span>
+    </div>
+    <div class="recommendation-grid" id="recommendations" aria-live="polite">
+      <div class="empty-state" role="status">Loading next actions…</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Measured from original publication</span><h2>Freshness and recruiter-screen conversion</h2></div>
+      <span class="section-note">Reposts are tracked separately and do not reset posting age</span>
+    </div>
+    <div class="freshness-grid" id="freshness-conversion"></div>
+  </section>
+
 </div>
 
 <dialog id="job-dialog">
@@ -186,6 +264,4 @@
 </dialog>
 {% endblock %}
 
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>{% endblock %}
