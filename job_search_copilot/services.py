@@ -1,9 +1,11 @@
 import json
+import re
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlparse
 
-from sqlalchemy import case, or_
+from sqlalchemy import and_, case, func, or_
 
 from .models import (
     FRESHNESS_BUCKETS,
@@ -48,6 +50,52 @@ APPLIED_STATUSES = ACTIVE_APPLICATION_STATUSES | TERMINAL_APPLICATION_STATUSES
 NON_APPLICATION_TERMINAL_STATUSES = {"Not a Fit"}
 RECOMMENDATION_EXCLUDED_STATUSES = (
     APPLIED_STATUSES | NON_APPLICATION_TERMINAL_STATUSES
+)
+CURRENT_PURSUIT_STATUSES = {
+    "Recruiter Screen",
+    "Hiring Manager",
+    "Technical Interview",
+    "System Design",
+    "Onsite",
+}
+
+RECRUITER_ACTIVITY_PATTERNS = (
+    re.compile(
+        r"\b(?:recruiter|talent acquisition|hiring manager)\b.{0,100}"
+        r"\b(?:responded|replied|contacted|reached out|invited|asked|requested)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:responded|replied|contacted|reached out|invited|asked|requested)\b"
+        r".{0,100}\b(?:recruiter|talent acquisition|hiring manager)\b",
+        re.IGNORECASE,
+    ),
+)
+
+RECRUITER_EVENT_PATTERNS = (
+    re.compile(
+        r"\b(?:recruiter|talent acquisition|hiring manager)\b.{0,100}"
+        r"\b(?:call|screen|chat|conversation|interview|follow-up|follow up)\b"
+        r".{0,100}\b(?:scheduled|confirmed|booked|invited|requested)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:scheduled|confirmed|booked|invited|requested)\b.{0,100}"
+        r"\b(?:recruiter|talent acquisition|hiring manager)\b.{0,100}"
+        r"\b(?:call|screen|chat|conversation|interview|follow-up|follow up)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bschedule\b.{0,100}\b(?:recruiter|talent acquisition|hiring manager)\b"
+        r".{0,100}\b(?:call|screen|chat|conversation|interview|follow-up|follow up)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:recruiter|talent acquisition|hiring manager)\b.{0,100}"
+        r"\b(?:invited|requested|asked)\b.{0,100}"
+        r"\b(?:schedule|call|screen|chat|conversation|interview|follow-up|follow up)\b",
+        re.IGNORECASE,
+    ),
 )
 
 TIERS = ["Apply Next", "Prepare Soon", "Conditional", "Monitor", "Active Application"]
@@ -109,6 +157,41 @@ def metadata():
         "tiers": TIERS,
         "not_fit_categories": NOT_FIT_CATEGORIES,
         "freshness_confidence": FRESHNESS_CONFIDENCE,
+    }
+
+
+def tracker_revision():
+    job_count, job_id_total, latest_job_update = db.session.query(
+        func.count(Job.id),
+        func.coalesce(func.sum(Job.id), 0),
+        func.max(Job.updated_at),
+    ).one()
+    history_count, latest_history_id = db.session.query(
+        func.count(StatusHistory.id),
+        func.coalesce(func.max(StatusHistory.id), 0),
+    ).one()
+    snapshot_count, latest_snapshot_id = db.session.query(
+        func.count(SankeySnapshot.id),
+        func.coalesce(func.max(SankeySnapshot.id), 0),
+    ).one()
+    latest_update = (
+        latest_job_update.isoformat(timespec="microseconds")
+        if latest_job_update
+        else ""
+    )
+    return {
+        "revision": ":".join(
+            str(value)
+            for value in (
+                job_count,
+                job_id_total,
+                latest_update,
+                history_count,
+                latest_history_id,
+                snapshot_count,
+                latest_snapshot_id,
+            )
+        )
     }
 
 
@@ -208,14 +291,19 @@ def build_sankey_data(jobs=None):
         jobs = Job.query.filter(
             or_(Job.archived.is_(False), Job.applied_date.is_not(None))
         ).all()
-    interview_statuses = {
-        "Recruiter Screen",
-        "Hiring Manager",
+    initial_screen_statuses = {"Recruiter Screen", "Hiring Manager"}
+    technical_interview_statuses = {
         "Technical Interview",
         "System Design",
-        "Onsite",
-        "Offer",
     }
+    interview_statuses = (
+        initial_screen_statuses
+        | technical_interview_statuses
+        | {
+            "Onsite",
+            "Offer",
+        }
+    )
     final_statuses = {"Onsite", "Offer"}
 
     def reached_status(job, statuses):
@@ -233,19 +321,22 @@ def build_sankey_data(jobs=None):
         if any(
             marker in stage
             for marker in (
-                "recruiter",
-                "hiring manager",
                 "technical",
                 "coding",
                 "system design",
-                "interview",
             )
         ):
-            return "interview"
+            return "technical"
+        if any(marker in stage for marker in ("recruiter", "hiring manager")):
+            return "initial"
         if reached_status(job, final_statuses):
             return "final"
-        if reached_status(job, interview_statuses):
-            return "interview"
+        if reached_status(job, technical_interview_statuses):
+            return "technical"
+        if reached_status(job, initial_screen_statuses):
+            return "initial"
+        if "interview" in stage:
+            return "technical"
         return "resume"
 
     links = {}
@@ -273,22 +364,31 @@ def build_sankey_data(jobs=None):
                 add("Resume review", "No response yet")
                 continue
 
-            add("Resume review", "Advanced to interviews")
+            add("Resume review", "Initial screen")
 
-            if job.status == "Rejected" and phase == "interview":
-                add("Advanced to interviews", "Rejected during interviews")
+            if job.status == "Rejected" and phase == "initial":
+                add("Initial screen", "Rejected during interviews")
                 continue
-            if phase != "final":
-                add("Advanced to interviews", "Active interviewing")
+            if phase == "initial":
+                add("Initial screen", "Active initial screen")
                 continue
 
-            add("Advanced to interviews", "Final interview")
+            add("Initial screen", "Technical interview")
+
+            if job.status == "Rejected" and phase == "technical":
+                add("Technical interview", "Rejected during interviews")
+                continue
+            if phase == "technical":
+                add("Technical interview", "Active technical interview")
+                continue
+
+            add("Technical interview", "Final / onsite")
             if job.status == "Rejected":
-                add("Final interview", "Rejected after final interview")
+                add("Final / onsite", "Rejected after final interview")
             elif job.status == "Offer":
-                add("Final interview", "Offer")
+                add("Final / onsite", "Offer")
             else:
-                add("Final interview", "Final interview active")
+                add("Final / onsite", "Final interview active")
         else:
             add("Tracked roles", "Not applied")
             if job.status == "Ready to Apply":
@@ -301,7 +401,7 @@ def build_sankey_data(jobs=None):
             elif job.status == "Referral Prep":
                 add("Not applied", "Referral prep")
             else:
-                add("Not applied", "Researching / preparing")
+                add("Not applied", "Preparing")
 
     node_names = []
     for source, target in links:
@@ -410,7 +510,51 @@ def backfill_sankey_history():
     db.session.commit()
 
 
-def list_jobs(search="", status="", tier="", archive="active"):
+def _next_action_order():
+    has_action = and_(
+        Job.next_action.is_not(None),
+        func.trim(Job.next_action) != "",
+    )
+    return (
+        case(
+            (
+                and_(
+                    has_action,
+                    Job.next_action_date.is_not(None),
+                    Job.next_action_date < date.today(),
+                ),
+                0,
+            ),
+            (
+                and_(
+                    has_action,
+                    Job.next_action_date == date.today(),
+                ),
+                1,
+            ),
+            (
+                and_(
+                    has_action,
+                    Job.next_action_date > date.today(),
+                ),
+                2,
+            ),
+            (has_action, 3),
+            else_=4,
+        ),
+        Job.next_action_date.is_(None),
+        Job.next_action_date,
+    )
+
+
+def list_jobs(
+    search="",
+    status="",
+    tier="",
+    archive="active",
+    workflow="",
+    sort="default",
+):
     query = Job.query
     if archive == "archived":
         query = query.filter(Job.archived.is_(True))
@@ -425,6 +569,63 @@ def list_jobs(search="", status="", tier="", archive="active"):
         query = query.filter(Job.status == status.strip())
     if tier:
         query = query.filter(Job.recommendation_tier == tier.strip())
+    if workflow == "new":
+        query = query.filter(
+            Job.applied_date.is_(None),
+            Job.status.notin_(
+                APPLIED_STATUSES | NON_APPLICATION_TERMINAL_STATUSES
+            ),
+        )
+    elif workflow == "applications":
+        query = query.filter(
+            or_(
+                Job.applied_date.is_not(None),
+                Job.status.in_(APPLIED_STATUSES),
+            )
+        )
+    elif workflow == "pursuits":
+        candidates = (
+            query.filter(
+                Job.status.notin_(
+                    {
+                        "Offer",
+                        *TERMINAL_APPLICATION_STATUSES,
+                        *NON_APPLICATION_TERMINAL_STATUSES,
+                    }
+                )
+            )
+            .order_by(
+                *_next_action_order(),
+                Job.updated_at.desc(),
+            )
+            .all()
+        )
+        return [job for job in candidates if _is_current_pursuit(job)]
+
+    if sort == "freshest":
+        return query.order_by(
+            Job.first_published_date.is_(None),
+            Job.first_published_date.desc(),
+            Job.updated_at.desc(),
+        ).all()
+    if sort == "oldest":
+        return query.order_by(
+            Job.first_published_date.is_(None),
+            Job.first_published_date,
+            Job.updated_at.desc(),
+        ).all()
+    if workflow == "new":
+        return query.order_by(
+            Job.first_published_date.is_(None),
+            Job.first_published_date.desc(),
+            Job.updated_at.desc(),
+        ).all()
+    if workflow == "applications":
+        return query.order_by(
+            *_next_action_order(),
+            Job.applied_date.desc(),
+            Job.updated_at.desc(),
+        ).all()
 
     tier_order = case(
         (Job.recommendation_tier == "Apply Next", 1),
@@ -442,11 +643,109 @@ def list_jobs(search="", status="", tier="", archive="active"):
     ).all()
 
 
+def _has_confirmed_recruiter_activity(job):
+    current_history_notes = [
+        item.note
+        for item in job.histories
+        if item.new_status == job.status and item.note
+    ]
+    current_evidence = "\n".join(
+        value
+        for value in (
+            job.stage,
+            *current_history_notes[:3],
+        )
+        if value
+    )
+    if any(
+        pattern.search(current_evidence)
+        for pattern in (*RECRUITER_ACTIVITY_PATTERNS, *RECRUITER_EVENT_PATTERNS)
+    ):
+        return True
+    return bool(
+        job.next_action
+        and any(pattern.search(job.next_action) for pattern in RECRUITER_EVENT_PATTERNS)
+    )
+
+
+def _is_current_pursuit(job):
+    return job.status in CURRENT_PURSUIT_STATUSES or (
+        job.status == "Applied" and _has_confirmed_recruiter_activity(job)
+    )
+
+
+def current_pursuits(limit=25):
+    """Return active interview processes and confirmed recruiter conversations."""
+    bounded_limit = min(max(limit, 1), 50)
+    candidates = (
+        Job.query.filter(
+            Job.archived.is_(False),
+            Job.status.notin_(
+                {
+                    "Offer",
+                    *TERMINAL_APPLICATION_STATUSES,
+                    *NON_APPLICATION_TERMINAL_STATUSES,
+                }
+            ),
+        )
+        .order_by(
+            *_next_action_order(),
+            Job.updated_at.desc(),
+        )
+        .all()
+    )
+    pursuits = [job for job in candidates if _is_current_pursuit(job)]
+    return pursuits[:bounded_limit]
+
+
 def get_job(job_id):
     job = db.session.get(Job, job_id)
     if job is None:
         raise TrackerNotFoundError(f"Job {job_id} was not found")
     return job
+
+
+def prepared_resume_path(job, applications_root):
+    root = Path(applications_root).resolve()
+    company_directory = (root / job.company).resolve()
+    try:
+        company_directory.relative_to(root)
+    except ValueError:
+        return None
+    if not company_directory.is_dir():
+        return None
+
+    candidates = []
+    for candidate in company_directory.rglob("*.pdf"):
+        if not candidate.is_file() or not candidate.name.lower().endswith(
+            "_resume.pdf"
+        ):
+            continue
+        resolved = candidate.resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        candidates.append(resolved)
+
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        return None
+
+    normalize = lambda value: re.sub(r"[^a-z0-9]+", "", value.lower())
+    role_key = normalize(job.role)
+    role_matches = []
+    for candidate in candidates:
+        relative_parent = candidate.parent.relative_to(company_directory.resolve())
+        folder_keys = [
+            normalize(part)
+            for part in relative_parent.parts
+            if normalize(part)
+        ]
+        if any(key in role_key or role_key in key for key in folder_keys):
+            role_matches.append(candidate)
+    return role_matches[0] if len(role_matches) == 1 else None
 
 
 def create_job(payload):
@@ -643,10 +942,9 @@ def sankey_snapshots(limit=250):
     )
 
 
-def _sankey_timeline_signature(data):
+def _named_sankey_links(data):
     node_names = [node["name"] for node in data.get("nodes", [])]
-    topology = []
-    incoming = {name: 0 for name in node_names}
+    links = {}
     for link in data.get("links", []):
         source = (
             link["source"]
@@ -658,12 +956,156 @@ def _sankey_timeline_signature(data):
             if isinstance(link["target"], str)
             else node_names[link["target"]]
         )
+        links[(source, target)] = links.get((source, target), 0) + link["value"]
+    return links
+
+
+def _rename_sankey_nodes(data, renames):
+    if not any(node.get("name") in renames for node in data.get("nodes", [])):
+        return data
+    return {
+        "nodes": [
+            {**node, "name": renames.get(node["name"], node["name"])}
+            for node in data.get("nodes", [])
+        ],
+        "links": [
+            {
+                **link,
+                "source": (
+                    renames.get(link["source"], link["source"])
+                    if isinstance(link["source"], str)
+                    else link["source"]
+                ),
+                "target": (
+                    renames.get(link["target"], link["target"])
+                    if isinstance(link["target"], str)
+                    else link["target"]
+                ),
+            }
+            for link in data.get("links", [])
+        ],
+    }
+
+
+def _canonicalize_legacy_sankey(data, technical_active=0):
+    data = _rename_sankey_nodes(
+        data,
+        {"Researching / preparing": "Preparing"},
+    )
+    links = _named_sankey_links(data)
+    if not any(
+        source == "Advanced to interviews" or target == "Advanced to interviews"
+        for source, target in links
+    ):
+        return data
+
+    legacy_nodes = {
+        "Advanced to interviews",
+        "Active interviewing",
+        "Final interview",
+    }
+    canonical_links = {
+        (source, target): value
+        for (source, target), value in links.items()
+        if source not in legacy_nodes and target not in legacy_nodes
+    }
+
+    def add(source, target, value):
+        if value:
+            canonical_links[(source, target)] = (
+                canonical_links.get((source, target), 0) + value
+            )
+
+    advanced = links.get(("Resume review", "Advanced to interviews"), 0)
+    active = links.get(("Advanced to interviews", "Active interviewing"), 0)
+    rejected = links.get(
+        ("Advanced to interviews", "Rejected during interviews"),
+        0,
+    )
+    final = links.get(("Advanced to interviews", "Final interview"), 0)
+    technical_active = min(max(technical_active, 0), active)
+    initial_active = active - technical_active
+
+    add("Resume review", "Initial screen", advanced)
+    add("Initial screen", "Active initial screen", initial_active)
+    add(
+        "Initial screen",
+        "Technical interview",
+        technical_active + rejected + final,
+    )
+    add(
+        "Technical interview",
+        "Active technical interview",
+        technical_active,
+    )
+    add("Technical interview", "Rejected during interviews", rejected)
+    add("Technical interview", "Final / onsite", final)
+    for (source, target), value in links.items():
+        if source == "Final interview":
+            add("Final / onsite", target, value)
+
+    node_names = []
+    for source, target in canonical_links:
+        if source not in node_names:
+            node_names.append(source)
+        if target not in node_names:
+            node_names.append(target)
+    return {
+        "nodes": [{"name": name} for name in node_names],
+        "links": [
+            {
+                "source": node_names.index(source),
+                "target": node_names.index(target),
+                "value": value,
+            }
+            for (source, target), value in canonical_links.items()
+        ],
+    }
+
+
+def _technical_interview_counts(snapshots):
+    if not snapshots:
+        return []
+    histories = (
+        StatusHistory.query.filter(
+            StatusHistory.created_at <= snapshots[-1].created_at
+        )
+        .order_by(StatusHistory.created_at, StatusHistory.id)
+        .all()
+    )
+    current_statuses = {}
+    counts = []
+    history_index = 0
+    technical_statuses = {"Technical Interview", "System Design"}
+    for snapshot in snapshots:
+        while (
+            history_index < len(histories)
+            and histories[history_index].created_at <= snapshot.created_at
+        ):
+            history = histories[history_index]
+            current_statuses[history.job_id] = history.new_status
+            history_index += 1
+        counts.append(
+            sum(
+                status in technical_statuses
+                for status in current_statuses.values()
+            )
+        )
+    return counts
+
+
+def _sankey_timeline_signature(data):
+    topology = []
+    links = _named_sankey_links(data)
+    incoming = {node["name"]: 0 for node in data.get("nodes", [])}
+    for (source, target), value in links.items():
         topology.append((source, target))
-        incoming[target] = incoming.get(target, 0) + link["value"]
+        incoming[target] = incoming.get(target, 0) + value
 
     low_signal_nodes = {
         "Tracked roles",
         "Not applied",
+        "Preparing",
         "Researching / preparing",
     }
     milestones = tuple(
@@ -676,18 +1118,23 @@ def _sankey_timeline_signature(data):
     return tuple(sorted(topology)), milestones
 
 
-def sankey_timeline(limit=250):
+def sankey_timeline(limit=1000):
     snapshots = list(reversed(sankey_snapshots(limit)))
     if not snapshots:
-        return {"highlights": [], "all_activity": []}
+        return {"daily": [], "highlights": [], "all_activity": []}
 
     entries = []
     signatures = []
-    for snapshot in snapshots:
+    technical_counts = _technical_interview_counts(snapshots)
+    for snapshot, technical_count in zip(snapshots, technical_counts):
         entry = snapshot.to_dict()
         entry["grouped_count"] = 1
         entries.append(entry)
-        signatures.append(_sankey_timeline_signature(snapshot.data))
+        display_data = _canonicalize_legacy_sankey(
+            snapshot.data,
+            technical_count,
+        )
+        signatures.append(_sankey_timeline_signature(display_data))
 
     first_snapshot_is_empty = not snapshots[0].data.get("links")
     if first_snapshot_is_empty:
@@ -728,7 +1175,25 @@ def sankey_timeline(limit=250):
         entries.insert(0, empty_baseline)
         highlights.insert(0, dict(empty_baseline))
 
+    daily_indexes = {0}
+    last_index_by_day = {}
+    for index, entry in enumerate(entries):
+        last_index_by_day[datetime.fromisoformat(entry["created_at"]).date()] = index
+    daily_indexes.update(last_index_by_day.values())
+
+    daily = []
+    previous_index = -1
+    for index in sorted(daily_indexes):
+        entry = dict(entries[index])
+        entry["grouped_count"] = sum(
+            candidate["grouped_count"]
+            for candidate in entries[previous_index + 1 : index + 1]
+        )
+        daily.append(entry)
+        previous_index = index
+
     return {
+        "daily": daily,
         "highlights": highlights,
         "all_activity": entries,
     }
@@ -739,3 +1204,13 @@ def get_sankey_snapshot(snapshot_id):
     if snapshot is None:
         raise TrackerNotFoundError(f"Sankey snapshot {snapshot_id} was not found")
     return snapshot
+
+
+def get_sankey_snapshot_view(snapshot_id):
+    snapshot = get_sankey_snapshot(snapshot_id)
+    technical_count = _technical_interview_counts([snapshot])[0]
+    result = snapshot.to_dict()
+    result.update(
+        _canonicalize_legacy_sankey(snapshot.data, technical_count)
+    )
+    return result

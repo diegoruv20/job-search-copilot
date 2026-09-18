@@ -33,6 +33,7 @@ def create_app(test_config=None):
         SQLALCHEMY_DATABASE_URI=f"sqlite:///{database_path}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SQLALCHEMY_ENGINE_OPTIONS={"connect_args": {"timeout": 15}},
+        APPLICATIONS_ROOT=Path(app.root_path) / "local" / "applications",
     )
 
     if test_config:

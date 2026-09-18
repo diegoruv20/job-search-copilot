@@ -53,6 +53,27 @@ User data is more important than a new feature. A database customization must:
 Normal tracker changes still go through services or MCP tools rather than direct
 SQLite edits.
 
+## Shared queue and pipeline views
+
+The dashboard's Working Queue keeps one familiar jobs table while offering four
+service-backed scopes:
+
+- **New opportunities** shows active roles that have not been applied to.
+- **Current pursuits** derives confirmed recruiter conversations and active
+  interview stages from existing tracker evidence.
+- **My applications** includes submitted roles and recorded outcomes.
+- **All jobs** restores the complete tracker scope.
+
+Search remains immediately available. Status, recommendation, visibility, and
+sort controls can be added or removed as needed, reset returns to workflow
+defaults, and filtered results paginate consistently on desktop and mobile.
+
+The application-flow Sankey distinguishes initial screens, technical interviews,
+and final or onsite rounds. Daily, highlights, and all-activity playback modes
+preserve the raw stored snapshots while presenting legacy frames with the current
+stage vocabulary. Responsive measurement and an accessible scroll hint keep the
+full graph readable on narrow screens.
+
 ## Recommended workflow
 
 1. Describe the need in user terms.

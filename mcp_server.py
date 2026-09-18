@@ -26,6 +26,7 @@ from job_search_copilot.services import (
     TrackerNotFoundError,
     TrackerValidationError,
     create_job,
+    current_pursuits,
     delete_job,
     get_job,
     history,
@@ -268,6 +269,8 @@ def job_list(
     status: str = "",
     tier: str = "",
     archive: str = "active",
+    workflow: str = "",
+    sort: str = "default",
 ) -> dict[str, Any]:
     """List jobs using the same filters and ordering as the dashboard."""
     return _tool_result(
@@ -276,7 +279,12 @@ def job_list(
             "jobs": [
                 job.to_dict()
                 for job in list_jobs(
-                    search=search, status=status, tier=tier, archive=archive
+                    search=search,
+                    status=status,
+                    tier=tier,
+                    archive=archive,
+                    workflow=workflow,
+                    sort=sort,
                 )
             ],
         }
@@ -455,6 +463,18 @@ def recommendations_get(limit: int = 8) -> dict[str, Any]:
         lambda: {
             "ok": True,
             "jobs": [job.to_dict() for job in recommendations(bounded_limit)],
+        }
+    )
+
+
+@mcp.tool()
+def current_pursuits_get(limit: int = 25) -> dict[str, Any]:
+    """Return active interviews and confirmed recruiter conversations."""
+    bounded_limit = min(max(limit, 1), 50)
+    return _tool_result(
+        lambda: {
+            "ok": True,
+            "jobs": [job.to_dict() for job in current_pursuits(bounded_limit)],
         }
     )
 

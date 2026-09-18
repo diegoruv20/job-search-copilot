@@ -37,6 +37,7 @@ class TrackerMcpTestCase(unittest.TestCase):
                 self.assertIn("job_create", tool_names)
                 self.assertIn("job_delete", tool_names)
                 self.assertIn("application_record", tool_names)
+                self.assertIn("current_pursuits_get", tool_names)
                 self.assertIn("dashboard_start", tool_names)
 
                 created = await client.call_tool(
@@ -70,6 +71,21 @@ class TrackerMcpTestCase(unittest.TestCase):
 
                 summary = await client.call_tool("stats_get", {})
                 self.assertEqual(summary.structured_content["stats"]["applied"], 1)
+
+                pursuit = await client.call_tool(
+                    "job_update",
+                    {
+                        "job_id": job_id,
+                        "status": "Technical Interview",
+                        "stage": "Technical interview scheduled",
+                    },
+                )
+                self.assertTrue(pursuit.structured_content["ok"])
+                pursuits = await client.call_tool("current_pursuits_get", {})
+                self.assertEqual(
+                    pursuits.structured_content["jobs"][0]["id"],
+                    job_id,
+                )
 
         self.run_async(scenario)
 

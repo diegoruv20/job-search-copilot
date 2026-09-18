@@ -19,7 +19,13 @@
       <span class="brand-mark">JT</span>
       <span><strong>Job Tracker</strong><small>Application command center</small></span>
     </a>
-    <button class="button button-primary" id="add-job-button">+ Add job</button>
+    <div class="topbar-actions">
+      <span class="sync-status" id="dashboard-sync-status" role="status" aria-live="polite" aria-label="Live updates on" data-state="live">
+        <i aria-hidden="true"></i>
+        <span class="sync-status-text">Live updates on</span>
+      </span>
+      <button class="button button-primary" id="add-job-button">+ Add job</button>
+    </div>
   </nav>
   <main>{% block content %}{% endblock %}</main>
   {% block scripts %}{% endblock %}

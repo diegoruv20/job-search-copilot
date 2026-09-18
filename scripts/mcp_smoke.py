@@ -10,6 +10,7 @@ from mcp import Client, StdioServerParameters
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_TOOLS = {
     "application_record",
+    "current_pursuits_get",
     "dashboard_start",
     "dashboard_status",
     "dashboard_stop",
