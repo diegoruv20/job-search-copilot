@@ -12,6 +12,22 @@ The following paths are gitignored:
 
 Do not remove these exclusions when publishing or sharing the repository.
 
+## Browser-tab Working Queue state
+
+The dashboard uses browser `sessionStorage` to keep Working Queue controls stable
+across reloads in the same tab. Only controls explicitly marked for queue state
+are stored: the active workflow, search text, status, recommendation, visibility,
+sort, visible advanced-filter controls, and current page when those controls are
+present. Values are validated against the controls currently rendered before
+they are restored. Missing, malformed, outdated, or no-longer-valid state is
+ignored, and Reset filters removes the saved state.
+
+This tab-scoped state never includes jobs, notes, profile or resume data,
+applications, external page content, or API responses. It is not written to the
+tracker database, synchronized to another device, or sent to a hosted service.
+Browsers that block `sessionStorage` continue to use the dashboard without
+persistence.
+
 ## Backup
 
 Create a consistent backup while the dashboard is running:

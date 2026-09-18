@@ -25,6 +25,10 @@ const state = {
 
 const DASHBOARD_REFRESH_INTERVAL_MS = 5000;
 const JOBS_PAGE_SIZE = 10;
+const jobRequestSequence = WorkingQueueState.createRequestSequence();
+const textFilterDebounce = WorkingQueueState.createDebouncedTask(() => {
+  loadJobsFromFirstPage().catch(error => console.error(error));
+}, WorkingQueueState.TEXT_DEBOUNCE_MS);
 const workflowViews = {
   new: {
     title: "New opportunities",
@@ -105,8 +109,10 @@ function sortJobs(jobs) {
 }
 
 async function loadAll() {
-  const [meta, stats, recommendations, jobs, history, sankey, sankeyTimeline, workspace, revision] = await Promise.all([
-    api("/api/meta"),
+  state.meta = await api("/api/meta");
+  renderSelects();
+  restoreQueueSessionState();
+  const [stats, recommendations, jobs, history, sankey, sankeyTimeline, workspace, revision] = await Promise.all([
     api("/api/stats"),
     api("/api/recommendations"),
     loadJobs(false),
@@ -116,9 +122,7 @@ async function loadAll() {
     api("/api/workspace"),
     api("/api/revision"),
   ]);
-  state.meta = meta;
   state.dashboardRevision = revision.revision;
-  renderSelects();
   renderStats(stats);
   renderFreshness(stats.freshness_conversion);
   renderRecommendations(recommendations.slice(0, 4));
@@ -130,6 +134,7 @@ async function loadAll() {
 }
 
 async function loadJobs(render = true) {
+  const requestId = jobRequestSequence.begin();
   const params = new URLSearchParams();
   const q = $("#search-input")?.value.trim();
   const status = $("#status-filter")?.value;
@@ -142,11 +147,83 @@ async function loadJobs(render = true) {
   params.set("archive", archive);
   params.set("workflow", state.workflow);
   params.set("sort", sort);
-  state.jobs = sortJobs(await api(`/api/jobs?${params}`));
-  state.jobIndex.clear();
-  state.jobs.forEach(job => state.jobIndex.set(job.id, job));
-  if (render) renderJobs();
-  return state.jobs;
+  setJobsLoading(true);
+  try {
+    const jobs = sortJobs(await api(`/api/jobs?${params}`));
+    if (!jobRequestSequence.isCurrent(requestId)) return state.jobs;
+    state.jobs = jobs;
+    state.jobIndex.clear();
+    state.jobs.forEach(job => state.jobIndex.set(job.id, job));
+    if (render) renderJobs();
+    return state.jobs;
+  } catch (error) {
+    if (!jobRequestSequence.isCurrent(requestId)) return state.jobs;
+    renderJobsError(error);
+    throw error;
+  } finally {
+    if (jobRequestSequence.isCurrent(requestId)) setJobsLoading(false);
+  }
+}
+
+function setJobsLoading(loading) {
+  $("#jobs-panel").setAttribute("aria-busy", String(loading));
+  if (loading) $("#result-count").textContent = "Loading jobs…";
+}
+
+function renderJobsError(error) {
+  const message = `Unable to load jobs: ${escapeHtml(error.message)}`;
+  $("#jobs-table").innerHTML = `<tr><td colspan="5" class="error-state" role="alert">${message}</td></tr>`;
+  $("#mobile-job-list").innerHTML = `<div class="empty-state error-state" role="alert">${message}</div>`;
+  $("#result-count").textContent = "Jobs could not be loaded.";
+}
+
+function queueSessionStorage() {
+  try { return window.sessionStorage; } catch { return { getItem() {}, setItem() {}, removeItem() {} }; }
+}
+
+function queueStateValidators() {
+  const selectValue = selector => value => typeof value === "string"
+    && Array.from($(selector).options).some(option => option.value === value);
+  const supportedFilters = new Set(["status", "tier", "archive", "sort"]);
+  return {
+    workflow: value => typeof value === "string" && Boolean(workflowViews[value]),
+    text: value => typeof value === "string" && value.length <= 240,
+    status: selectValue("#status-filter"),
+    tier: selectValue("#tier-filter"),
+    archive: selectValue("#archive-filter"),
+    sort: selectValue("#jobs-sort"),
+    visibleFilters: value => Array.isArray(value)
+      && value.every(item => typeof item === "string" && supportedFilters.has(item)),
+    page: value => Number.isInteger(value) && value >= 1,
+  };
+}
+
+function saveQueueSessionState() {
+  WorkingQueueState.write(queueSessionStorage(), {
+    workflow: state.workflow,
+    text: $("#search-input").value,
+    status: $("#status-filter").value,
+    tier: $("#tier-filter").value,
+    archive: $("#archive-filter").value,
+    sort: $("#jobs-sort").value,
+    visibleFilters: [...state.visibleJobFilters],
+    page: state.jobPage,
+  }, queueStateValidators());
+}
+
+function restoreQueueSessionState() {
+  const result = WorkingQueueState.read(queueSessionStorage(), queueStateValidators());
+  if (result.status !== "valid") return;
+  const controls = result.controls;
+  activateWorkflow(controls.workflow, false);
+  $("#search-input").value = controls.text;
+  $("#status-filter").value = controls.status;
+  $("#tier-filter").value = controls.tier;
+  $("#archive-filter").value = controls.archive;
+  $("#jobs-sort").value = controls.sort;
+  state.visibleJobFilters = new Set(controls.visibleFilters);
+  state.jobPage = controls.page;
+  renderActiveFilters();
 }
 
 function renderSelects() {
@@ -890,6 +967,7 @@ function renderJobs() {
   `).join("");
   renderJobPagination(jobCount, pageCount);
   renderActiveFilters();
+  saveQueueSessionState();
 }
 
 function renderJobPagination(jobCount, pageCount) {
@@ -945,12 +1023,14 @@ function activateWorkflow(workflow, applyDefaults = true) {
 }
 
 function clearAdvancedFilters() {
+  textFilterDebounce.cancel();
   $("#search-input").value = "";
   $("#status-filter").value = "";
   $("#tier-filter").value = "";
   state.visibleJobFilters.clear();
   state.jobPage = 1;
   activateWorkflow(state.workflow);
+  WorkingQueueState.clear(queueSessionStorage());
   return loadJobs();
 }
 
@@ -963,6 +1043,7 @@ function clearFilter(key) {
   if (key === "sort") $("#jobs-sort").value = view.sort;
   state.visibleJobFilters.delete(key);
   state.jobPage = 1;
+  saveQueueSessionState();
   return loadJobs();
 }
 
@@ -972,11 +1053,13 @@ function addFilter(key) {
   state.visibleJobFilters.add(key);
   $("#add-filter-menu").open = false;
   renderActiveFilters();
+  saveQueueSessionState();
   control.querySelector("select")?.focus();
 }
 
 function loadJobsFromFirstPage() {
   state.jobPage = 1;
+  saveQueueSessionState();
   return loadJobs();
 }
 
@@ -1260,19 +1343,26 @@ $("#add-job-button").addEventListener("click", () => openDialog());
 $("#empty-add-job").addEventListener("click", () => openDialog());
 $("#close-dialog").addEventListener("click", closeDialog);
 $("#cancel-dialog").addEventListener("click", closeDialog);
-$("#search-input").addEventListener("input", () => loadJobsFromFirstPage());
-$("#status-filter").addEventListener("change", () => loadJobsFromFirstPage());
-$("#tier-filter").addEventListener("change", () => loadJobsFromFirstPage());
-$("#archive-filter").addEventListener("change", () => loadJobsFromFirstPage());
-$("#jobs-sort").addEventListener("change", () => loadJobsFromFirstPage());
-$("#clear-filters").addEventListener("click", () => clearAdvancedFilters());
+$("#search-input").addEventListener("input", () => {
+  state.jobPage = 1;
+  saveQueueSessionState();
+  textFilterDebounce.schedule();
+});
+["#status-filter", "#tier-filter", "#archive-filter", "#jobs-sort"].forEach(selector => {
+  $(selector).addEventListener("change", () => loadJobsFromFirstPage().catch(error => console.error(error)));
+});
+$("#clear-filters").addEventListener("click", () => {
+  clearAdvancedFilters().catch(error => console.error(error));
+});
 $("#jobs-page-previous").addEventListener("click", () => {
   state.jobPage = Math.max(1, state.jobPage - 1);
   renderJobs();
+  saveQueueSessionState();
 });
 $("#jobs-page-next").addEventListener("click", () => {
   state.jobPage += 1;
   renderJobs();
+  saveQueueSessionState();
 });
 $("#add-filter-menu").addEventListener("click", event => {
   const filter = event.target.closest("[data-add-filter]");
@@ -1285,9 +1375,10 @@ $("#filter-controls").addEventListener("click", event => {
 document.querySelectorAll("[data-workflow]").forEach(button => {
   button.addEventListener("click", () => {
     activateWorkflow(button.dataset.workflow);
-    loadJobsFromFirstPage();
+    loadJobsFromFirstPage().catch(error => console.error(error));
   });
 });
+window.addEventListener("pagehide", () => textFilterDebounce.cancel());
 $("#status").addEventListener("change", updateNotFitRequirements);
 $("#copy-onboarding-prompt").addEventListener("click", async () => {
   const confirmation = $("#copy-confirmation");
