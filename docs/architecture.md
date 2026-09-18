@@ -51,6 +51,11 @@ are opened only when the user asks an agent or Playwright to research them.
 The dashboard reads `/api/workspace` to show onboarding steps until the private
 career interview is complete.
 
+Recommended next moves appears at the top of the dashboard sidebar, directly
+above Activity. It presents the first four entries from the existing
+`/api/recommendations` prioritized application queue; recommendation selection
+and ordering remain in the shared service layer.
+
 The dashboard polls the lightweight `/api/revision` endpoint while the page is
 open. A changed revision triggers a full refresh, so mutations made through MCP,
 REST, or another browser tab appear without a manual reload. Refresh is deferred

@@ -47,6 +47,8 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertIn(b'id="sankey-rewind"', response.data)
         self.assertIn(b'class="legend-dot offer"', response.data)
         self.assertIn(b'id="workspace-panel"', response.data)
+        self.assertIn(b'id="recommendations"', response.data)
+        self.assertIn(b'class="dashboard-sidebar"', response.data)
         self.assertIn(b'id="dashboard-sync-status"', response.data)
         self.assertIn(b'data-workflow="new"', response.data)
         self.assertIn(b'data-workflow="pursuits"', response.data)
@@ -58,6 +60,10 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertLess(
             response.data.index(b'id="sankey-chart"'),
             response.data.index(b'id="jobs-view-title"'),
+        )
+        self.assertLess(
+            response.data.index(b'id="recommendations"'),
+            response.data.index(b'id="activity-list"'),
         )
 
         script = self.client.get("/static/js/dashboard.js")
@@ -72,6 +78,7 @@ class ApplicationTrackerTestCase(unittest.TestCase):
             self.assertIn(b"compactFrameSubject", script.data)
             self.assertIn(b"Daily snapshot", script.data)
             self.assertIn(b"View &amp; apply", script.data)
+            self.assertEqual(script.data.count(b"recommendations.slice(0, 4)"), 2)
             self.assertIn(b"No current pursuits yet.", script.data)
             self.assertIn(b'params.set("workflow", state.workflow)', script.data)
             self.assertIn(b"const JOBS_PAGE_SIZE = 10", script.data)

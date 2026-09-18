@@ -349,6 +349,9 @@ a { color: inherit; }
 .sankey-timeline-scale span:last-child { text-align: right; }
 .content-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(270px, 1fr); gap: 18px; }
 .content-grid > * { min-width: 0; }
+.dashboard-sidebar { display: grid; align-content: start; gap: 18px; }
+.dashboard-sidebar .panel { margin-top: 0; }
+.dashboard-sidebar .recommendation-grid { grid-template-columns: 1fr; }
 .workflow-tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

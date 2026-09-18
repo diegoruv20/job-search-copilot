@@ -121,7 +121,7 @@ async function loadAll() {
   renderSelects();
   renderStats(stats);
   renderFreshness(stats.freshness_conversion);
-  renderRecommendations(recommendations);
+  renderRecommendations(recommendations.slice(0, 4));
   renderWorkspace(workspace);
   renderHistory(history);
   renderSankeyHistory(sankeyTimeline, sankey);
@@ -1103,7 +1103,7 @@ async function refreshDashboard() {
     await loadJobs();
     renderStats(stats);
     renderFreshness(stats.freshness_conversion);
-    renderRecommendations(recommendations);
+    renderRecommendations(recommendations.slice(0, 4));
     renderWorkspace(workspace);
     renderHistory(history);
     renderSankeyHistory(sankeyTimeline, sankey);

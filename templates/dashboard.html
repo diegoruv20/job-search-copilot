@@ -193,21 +193,23 @@
       </div>
     </section>
 
-    <aside class="panel activity-panel">
-      <div class="section-heading"><div><span class="eyebrow">Recent changes</span><h2>Activity</h2></div></div>
-      <div id="activity-list" class="activity-list"></div>
+    <aside class="dashboard-sidebar">
+      <section class="panel recommendations-panel">
+        <div class="section-heading">
+          <div><span class="eyebrow">From your tracker</span><h2>Recommended next moves</h2></div>
+          <span class="section-note">Exact next actions recorded by dashboard and terminal workflows</span>
+        </div>
+        <div class="recommendation-grid" id="recommendations" aria-live="polite">
+          <div class="empty-state" role="status">Loading next actions…</div>
+        </div>
+      </section>
+
+      <section class="panel activity-panel">
+        <div class="section-heading"><div><span class="eyebrow">Recent changes</span><h2>Activity</h2></div></div>
+        <div id="activity-list" class="activity-list"></div>
+      </section>
     </aside>
   </div>
-
-  <section class="panel recommendations-panel">
-    <div class="section-heading">
-      <div><span class="eyebrow">From your tracker</span><h2>Recommended next moves</h2></div>
-      <span class="section-note">Exact next actions recorded by dashboard and terminal workflows</span>
-    </div>
-    <div class="recommendation-grid" id="recommendations" aria-live="polite">
-      <div class="empty-state" role="status">Loading next actions…</div>
-    </div>
-  </section>
 
   <section class="panel">
     <div class="section-heading">
