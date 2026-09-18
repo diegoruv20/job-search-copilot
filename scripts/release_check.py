@@ -18,5 +18,6 @@ if __name__ == "__main__":
     run([sys.executable, "scripts/mcp_smoke.py"])
     node = shutil.which("node")
     if node:
+        run([node, "--check", "static/js/working_queue_state.js"])
         run([node, "--check", "static/js/dashboard.js"])
     print("Release checks passed.")

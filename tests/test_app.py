@@ -56,6 +56,8 @@ class ApplicationTrackerTestCase(unittest.TestCase):
         self.assertIn(b'data-workflow="all"', response.data)
         self.assertIn(b'id="clear-filters"', response.data)
         self.assertIn(b'id="jobs-pagination"', response.data)
+        self.assertIn(b'id="jobs-panel" aria-busy="false"', response.data)
+        self.assertIn(b"js/working_queue_state.js", response.data)
         self.assertNotIn(b'id="pipeline"', response.data)
         self.assertLess(
             response.data.index(b'id="sankey-chart"'),

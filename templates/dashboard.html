@@ -95,14 +95,14 @@
   </section>
 
   <div class="content-grid">
-    <section class="panel jobs-panel">
+    <section class="panel jobs-panel" id="jobs-panel" aria-busy="false">
       <div class="section-heading">
         <div>
           <span class="eyebrow">Your working queue</span>
           <h2 id="jobs-view-title">New opportunities</h2>
           <span class="section-note" id="jobs-view-note">Unapplied active roles, freshest first</span>
         </div>
-        <span class="result-count" id="result-count"></span>
+        <span class="result-count" id="result-count" role="status" aria-live="polite"></span>
       </div>
       <div class="workflow-tabs" role="group" aria-label="Job workflow views">
         <button type="button" class="workflow-tab is-active" aria-pressed="true" data-workflow="new">
@@ -129,7 +129,8 @@
       <div class="filters">
         <label class="search-field">
           <span>Search</span>
-          <input id="search-input" type="search" placeholder="Company, role, or skill">
+          <input id="search-input" type="search" placeholder="Company, role, or skill"
+                 maxlength="240">
         </label>
         <details class="add-filter-menu" id="add-filter-menu">
           <summary>Add filter</summary>
@@ -266,4 +267,7 @@
 </dialog>
 {% endblock %}
 
-{% block scripts %}<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/working_queue_state.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
